@@ -46,28 +46,95 @@ func (g *TypeScriptGenerator) Generate(dtos []generator.DTO, config generator.Co
 	// Sort DTOs to ensure consistent output and handle dependencies
 	sortedDTOs := g.sortDTOsByDependency(dtos)
 
-	// Generate index file that exports all schemas
-	if err := g.generateIndexFile(sortedDTOs, config); err != nil {
-		return fmt.Errorf("failed to generate index file: %w", err)
-	}
+	// Get generation settings
+	genConfig := g.customTypes.GetGenerationConfig()
 
-	// Generate individual files for each DTO
-	for _, dto := range sortedDTOs {
-		if err := g.generateDTOFile(dto, config); err != nil {
-			return fmt.Errorf("failed to generate file for DTO %s: %w", dto.Name, err)
+	// Generate based on output mode
+	if g.customTypes.IsSingleFileMode() {
+		if err := g.generateSingleFile(sortedDTOs, config, genConfig); err != nil {
+			return fmt.Errorf("failed to generate single file: %w", err)
+		}
+	} else {
+		// Generate index file that exports all schemas
+		if err := g.generateIndexFile(sortedDTOs, config, genConfig); err != nil {
+			return fmt.Errorf("failed to generate index file: %w", err)
+		}
+
+		// Generate individual files for each DTO
+		for _, dto := range sortedDTOs {
+			if err := g.generateDTOFile(dto, config, genConfig); err != nil {
+				return fmt.Errorf("failed to generate file for DTO %s: %w", dto.Name, err)
+			}
 		}
 	}
 
 	// Generate package.json if needed
-	if err := g.generatePackageJSON(config); err != nil {
-		return fmt.Errorf("failed to generate package.json: %w", err)
+	if genConfig.GeneratePackageJson {
+		if err := g.generatePackageJSON(config); err != nil {
+			return fmt.Errorf("failed to generate package.json: %w", err)
+		}
 	}
 
 	return nil
 }
 
-// generateDTOFile creates a TypeScript file for a single DTO
-func (g *TypeScriptGenerator) generateDTOFile(dto generator.DTO, config generator.Config) error {
+// generateSingleFile creates a single TypeScript file with all DTOs
+func (g *TypeScriptGenerator) generateSingleFile(dtos []generator.DTO, config generator.Config, genConfig GenerationConfig) error {
+	filename := g.customTypes.GetSingleFileName()
+	filepath := filepath.Join(config.OutputFolder, filename)
+
+	file, err := os.Create(filepath)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	tmpl, err := template.New("single-file").Funcs(g.templateFuncs()).Parse(singleFileTemplate)
+	if err != nil {
+		return err
+	}
+
+	// Calculate all imports needed for all DTOs
+	allFormats := []string{}
+	for _, dto := range dtos {
+		dtoFormats := g.getUsedFormatsInDTO(dto)
+		for _, format := range dtoFormats {
+			// Add to allFormats if not already present
+			found := false
+			for _, existing := range allFormats {
+				if existing == format {
+					found = true
+					break
+				}
+			}
+			if !found {
+				allFormats = append(allFormats, format)
+			}
+		}
+	}
+	allImports := g.customTypes.GetAllImports(allFormats)
+
+	data := struct {
+		DTOs                  []generator.DTO
+		Config                generator.Config
+		Imports               []string
+		PackageName           string
+		GeneratePartialCodecs bool
+		GenerateHelpers       bool
+	}{
+		DTOs:                  dtos,
+		Config:                config,
+		Imports:               allImports,
+		PackageName:           g.getPackageName(config),
+		GeneratePartialCodecs: genConfig.GeneratePartialCodecs,
+		GenerateHelpers:       genConfig.GenerateHelpers,
+	}
+
+	return tmpl.Execute(file, data)
+}
+
+// Updated generateDTOFile to accept genConfig
+func (g *TypeScriptGenerator) generateDTOFile(dto generator.DTO, config generator.Config, genConfig GenerationConfig) error {
 	filename := fmt.Sprintf("%s%s", g.toKebabCase(dto.Name), g.FileExtension())
 	filepath := filepath.Join(config.OutputFolder, filename)
 
@@ -83,22 +150,24 @@ func (g *TypeScriptGenerator) generateDTOFile(dto generator.DTO, config generato
 	}
 
 	data := struct {
-		DTO         generator.DTO
-		Config      generator.Config
-		Imports     []string
-		PackageName string
+		DTO                   generator.DTO
+		Config                generator.Config
+		Imports               []string
+		PackageName           string
+		GeneratePartialCodecs bool
 	}{
-		DTO:         dto,
-		Config:      config,
-		Imports:     g.calculateImports(dto),
-		PackageName: g.getPackageName(config),
+		DTO:                   dto,
+		Config:                config,
+		Imports:               g.calculateImports(dto),
+		PackageName:           g.getPackageName(config),
+		GeneratePartialCodecs: genConfig.GeneratePartialCodecs,
 	}
 
 	return tmpl.Execute(file, data)
 }
 
-// generateIndexFile creates an index.ts that exports all schemas
-func (g *TypeScriptGenerator) generateIndexFile(dtos []generator.DTO, config generator.Config) error {
+// Updated generateIndexFile to accept genConfig
+func (g *TypeScriptGenerator) generateIndexFile(dtos []generator.DTO, config generator.Config, genConfig GenerationConfig) error {
 	filepath := filepath.Join(config.OutputFolder, "index.ts")
 
 	file, err := os.Create(filepath)
@@ -113,13 +182,15 @@ func (g *TypeScriptGenerator) generateIndexFile(dtos []generator.DTO, config gen
 	}
 
 	data := struct {
-		DTOs        []generator.DTO
-		Config      generator.Config
-		PackageName string
+		DTOs            []generator.DTO
+		Config          generator.Config
+		PackageName     string
+		GenerateHelpers bool
 	}{
-		DTOs:        dtos,
-		Config:      config,
-		PackageName: g.getPackageName(config),
+		DTOs:            dtos,
+		Config:          config,
+		PackageName:     g.getPackageName(config),
+		GenerateHelpers: genConfig.GenerateHelpers,
 	}
 
 	return tmpl.Execute(file, data)

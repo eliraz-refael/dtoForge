@@ -1,0 +1,61 @@
+# Enhanced DtoForge Configuration
+# This file allows you to customize code generation behavior
+
+# Output configuration
+output:
+  # Default output folder (can be overridden by -out flag)
+  folder: "./generated"
+
+  # Output mode: "multiple" (one file per DTO) or "single" (all in one file)
+  mode: "multiple"
+
+  # For single file mode, specify the filename
+  singleFileName: "schemas.ts"
+
+# Custom type mappings for OpenAPI formats
+customTypes:
+  # Date/Time formats with custom branded types
+  date-time:
+    ioTsType: "DateTimeString"
+    typeScriptType: "DateTimeString"
+    import: "import { DateTimeString } from './branded-types';"
+
+  date:
+    ioTsType: "DateString"
+    typeScriptType: "DateString"
+    import: "import { DateString } from './branded-types';"
+
+  # UUID with branded type
+  uuid:
+    ioTsType: "UUID"
+    typeScriptType: "UUID"
+    import: "import { UUID } from './branded-types';"
+
+  # Email with validation
+  email:
+    ioTsType: "EmailString"
+    typeScriptType: "EmailString"
+    import: "import { EmailString } from './branded-types';"
+
+  # URI/URL with validation
+  uri:
+    ioTsType: "URLString"
+    typeScriptType: "URLString"
+    import: "import { URLString } from './branded-types';"
+
+  # Binary data (could be base64 encoded)
+  binary:
+    ioTsType: "Base64String"
+    typeScriptType: "Base64String"
+    import: "import { Base64String } from './branded-types';"
+
+# Generation options
+generation:
+  # Whether to generate package.json
+  generatePackageJson: true
+
+  # Whether to generate partial codecs for updates
+  generatePartialCodecs: true
+
+  # Whether to generate validation helper functions
+  generateHelpers: true

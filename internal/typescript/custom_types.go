@@ -6,39 +6,84 @@ import (
 	"os"
 
 	"gopkg.in/yaml.v3"
-	"dtoForge/internal/generator"
 )
+
+// OutputConfig defines output behavior
+type OutputConfig struct {
+	Folder         string `yaml:"folder"`
+	Mode           string `yaml:"mode"`           // "multiple" or "single"
+	SingleFileName string `yaml:"singleFileName"` // for single file mode
+}
+
+// GenerationConfig defines what to generate
+type GenerationConfig struct {
+	GeneratePackageJson   bool `yaml:"generatePackageJson"`
+	GeneratePartialCodecs bool `yaml:"generatePartialCodecs"`
+	GenerateHelpers       bool `yaml:"generateHelpers"`
+}
 
 // CustomTypeMapping defines how to map OpenAPI formats to TypeScript/io-ts types
 type CustomTypeMapping struct {
-	// The io-ts codec to use (e.g., "DateFromISOString", "UUID.codec")
-	IoTsType string `yaml:"ioTsType"`
-	// The TypeScript type (e.g., "Date", "UUID", "EmailString")
-	TypeScriptType string `yaml:"typeScriptType"`
-	// Import statement needed (e.g., "import { DateFromISOString } from 'io-ts-types'")
+	IoTsType        string `yaml:"ioTsType"`
+	TypeScriptType  string `yaml:"typeScriptType"`
 	ImportStatement string `yaml:"import"`
 }
 
-// CustomTypeConfig represents the YAML configuration structure
-type CustomTypeConfig struct {
-	CustomTypes map[string]CustomTypeMapping `yaml:"customTypes"`
+// EnhancedCustomTypeConfig represents the complete YAML configuration structure
+type EnhancedCustomTypeConfig struct {
+	Output      OutputConfig                    `yaml:"output"`
+	CustomTypes map[string]CustomTypeMapping    `yaml:"customTypes"`
+	Generation  GenerationConfig                `yaml:"generation"`
 }
 
-// CustomTypeRegistry holds all custom type mappings
+// CustomTypeRegistry holds all custom type mappings and config
 type CustomTypeRegistry struct {
-	mappings map[string]CustomTypeMapping
+	mappings   map[string]CustomTypeMapping
+	output     OutputConfig
+	generation GenerationConfig
 }
 
-// NewCustomTypeRegistry creates a new registry with default mappings
+// NewCustomTypeRegistry creates a new registry with default mappings and config
 func NewCustomTypeRegistry() *CustomTypeRegistry {
 	registry := &CustomTypeRegistry{
 		mappings: make(map[string]CustomTypeMapping),
+		output: OutputConfig{
+			Folder:         "./generated",
+			Mode:           "multiple",
+			SingleFileName: "schemas.ts",
+		},
+		generation: GenerationConfig{
+			GeneratePackageJson:   true,
+			GeneratePartialCodecs: true,
+			GenerateHelpers:       true,
+		},
 	}
 
-	// Add default mappings
 	registry.addDefaultMappings()
-
 	return registry
+}
+
+// GetOutputConfig returns the output configuration
+func (r *CustomTypeRegistry) GetOutputConfig() OutputConfig {
+	return r.output
+}
+
+// GetGenerationConfig returns the generation configuration
+func (r *CustomTypeRegistry) GetGenerationConfig() GenerationConfig {
+	return r.generation
+}
+
+// IsSingleFileMode returns true if single file output is configured
+func (r *CustomTypeRegistry) IsSingleFileMode() bool {
+	return r.output.Mode == "single"
+}
+
+// GetSingleFileName returns the filename for single file mode
+func (r *CustomTypeRegistry) GetSingleFileName() string {
+	if r.output.SingleFileName == "" {
+		return "schemas.ts"
+	}
+	return r.output.SingleFileName
 }
 
 // addDefaultMappings adds the built-in format mappings
@@ -49,7 +94,6 @@ func (r *CustomTypeRegistry) addDefaultMappings() {
 		ImportStatement: "import { DateFromISOString } from 'io-ts-types';",
 	}
 
-	// Add more common formats with sensible defaults
 	r.mappings["uuid"] = CustomTypeMapping{
 		IoTsType:        "t.string",
 		TypeScriptType:  "string",
@@ -108,7 +152,6 @@ func (r *CustomTypeRegistry) GetAllImports(usedFormats []string) []string {
 
 // LoadFromConfig loads custom mappings from a YAML configuration file
 func (r *CustomTypeRegistry) LoadFromConfig(configPath string) error {
-	// Check if config file exists
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
 		return nil // Config file is optional
 	}
@@ -118,10 +161,31 @@ func (r *CustomTypeRegistry) LoadFromConfig(configPath string) error {
 		return fmt.Errorf("failed to read config file %s: %w", configPath, err)
 	}
 
-	var config CustomTypeConfig
+	var config EnhancedCustomTypeConfig
 	if err := yaml.Unmarshal(data, &config); err != nil {
 		return fmt.Errorf("failed to parse config file %s: %w", configPath, err)
 	}
+
+	// Load output config if provided
+	if config.Output.Folder != "" || config.Output.Mode != "" || config.Output.SingleFileName != "" {
+		if config.Output.Folder != "" {
+			r.output.Folder = config.Output.Folder
+		}
+		if config.Output.Mode != "" {
+			if config.Output.Mode != "multiple" && config.Output.Mode != "single" {
+				return fmt.Errorf("invalid output mode '%s', must be 'multiple' or 'single'", config.Output.Mode)
+			}
+			r.output.Mode = config.Output.Mode
+		}
+		if config.Output.SingleFileName != "" {
+			r.output.SingleFileName = config.Output.SingleFileName
+		}
+	}
+
+	// Load generation config if provided
+	r.generation.GeneratePackageJson = config.Generation.GeneratePackageJson
+	r.generation.GeneratePartialCodecs = config.Generation.GeneratePartialCodecs
+	r.generation.GenerateHelpers = config.Generation.GenerateHelpers
 
 	// Register all custom types from config
 	for format, mapping := range config.CustomTypes {
@@ -133,7 +197,17 @@ func (r *CustomTypeRegistry) LoadFromConfig(configPath string) error {
 
 // SaveExampleConfig creates an example configuration file
 func (r *CustomTypeRegistry) SaveExampleConfig(configPath string) error {
-	exampleConfig := CustomTypeConfig{
+	exampleConfig := EnhancedCustomTypeConfig{
+		Output: OutputConfig{
+			Folder:         "./generated",
+			Mode:           "multiple",
+			SingleFileName: "schemas.ts",
+		},
+		Generation: GenerationConfig{
+			GeneratePackageJson:   true,
+			GeneratePartialCodecs: true,
+			GenerateHelpers:       true,
+		},
 		CustomTypes: map[string]CustomTypeMapping{
 			"date-time": {
 				IoTsType:        "DateTimeString",
@@ -163,37 +237,4 @@ func (r *CustomTypeRegistry) SaveExampleConfig(configPath string) error {
 	}
 
 	return nil
-}
-
-// GetUsedFormats analyzes DTOs to find all used formats
-func (r *CustomTypeRegistry) GetUsedFormats(dtos []generator.DTO) []string {
-	formatSet := make(map[string]bool)
-	var formats []string
-
-	for _, dto := range dtos {
-		for _, prop := range dto.Properties {
-			if format := r.extractFormat(prop.Type); format != "" {
-				if !formatSet[format] {
-					formats = append(formats, format)
-					formatSet[format] = true
-				}
-			}
-		}
-	}
-
-	return formats
-}
-
-// extractFormat extracts format from a type using the GetFormat method
-func (r *CustomTypeRegistry) extractFormat(irType generator.IRType) string {
-	// Check if it's a type that has a GetFormat method
-	type formatProvider interface {
-		GetFormat() string
-	}
-
-	if fp, ok := irType.(formatProvider); ok {
-		return fp.GetFormat()
-	}
-
-	return ""
 }

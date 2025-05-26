@@ -302,13 +302,15 @@ func extractRefName(ref string) string {
 	return parts[len(parts)-1]
 }
 
+// Updated main.go logic to support config-based output folder
+
 func main() {
 	config := parseCLIArgs()
 
 	// Create generator registry
 	registry := generator.NewRegistry()
 
-	// Create TypeScript generator and pass the config file path
+	// Create TypeScript generator
 	tsGen := typescript.NewTypeScriptGenerator()
 	registry.Register(tsGen)
 
@@ -320,8 +322,33 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Discover config file BEFORE setting up output directory
+	configFile := discoverConfigFile(config)
+	if configFile != "" {
+		fmt.Printf("📝 Using config file: %s\n", configFile)
+	} else {
+		fmt.Printf("📝 No config file found, using defaults\n")
+	}
+
+	// Load config to get default output folder if CLI didn't specify one
+	finalOutputFolder := config.OutputFolder
+	if configFile != "" {
+		// Create a temporary registry just to load the config and get output settings
+		tempRegistry := typescript.NewCustomTypeRegistry()
+		if err := tempRegistry.LoadFromConfig(configFile); err != nil {
+			fmt.Printf("Warning: Failed to load config file %s: %v\n", configFile, err)
+		} else {
+			outputConfig := tempRegistry.GetOutputConfig()
+			// Only use config's output folder if CLI didn't specify one (still using default)
+			if config.OutputFolder == "./generated" && outputConfig.Folder != "" {
+				finalOutputFolder = outputConfig.Folder
+				fmt.Printf("📁 Using output folder from config: %s\n", finalOutputFolder)
+			}
+		}
+	}
+
 	// Ensure output directory exists
-	if err := os.MkdirAll(config.OutputFolder, 0755); err != nil {
+	if err := os.MkdirAll(finalOutputFolder, 0755); err != nil {
 		fmt.Printf("Error creating output directory: %v\n", err)
 		os.Exit(1)
 	}
@@ -347,20 +374,12 @@ func main() {
 
 	fmt.Printf("✅ Successfully parsed %d schemas from OpenAPI spec\n", len(dtos))
 
-	// Discover config file
-	configFile := discoverConfigFile(config)
-	if configFile != "" {
-		fmt.Printf("📝 Using config file: %s\n", configFile)
-	} else {
-		fmt.Printf("📝 No config file found, using defaults\n")
-	}
-
 	// Generate code
 	genConfig := generator.Config{
-		OutputFolder:   config.OutputFolder,
+		OutputFolder:   finalOutputFolder, // Use the resolved output folder
 		PackageName:    config.PackageName,
 		TargetLanguage: config.TargetLanguage,
-		ConfigFile:     configFile, // Pass the discovered config file path
+		ConfigFile:     configFile,
 	}
 
 	if err := gen.Generate(dtos, genConfig); err != nil {
@@ -368,5 +387,5 @@ func main() {
 		os.Exit(1)
 	}
 
-	fmt.Printf("🚀 Successfully generated %s code in %s\n", config.TargetLanguage, config.OutputFolder)
+	fmt.Printf("🚀 Successfully generated %s code in %s\n", config.TargetLanguage, finalOutputFolder)
 }
