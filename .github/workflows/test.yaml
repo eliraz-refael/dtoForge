@@ -1,0 +1,57 @@
+name: Test
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Go
+      uses: actions/setup-go@v3
+      with:
+        go-version: 1.21
+
+    - name: Cache Go modules
+      uses: actions/cache@v3
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
+    - name: Install dependencies
+      run: go mod download
+
+    - name: Run unit tests
+      run: go test -v ./...
+
+    - name: Run integration tests
+      run: go test -v -tags=integration ./...
+
+    - name: Run golden file tests
+      run: go test -v -tags=golden ./...
+
+    - name: Test build
+      run: go build -v ./...
+
+    - name: Test CLI functionality
+      run: |
+        go build -o dtoforge
+        ./dtoforge -example-config
+        ./dtoforge -openapi testdata/basic-api.yaml -out ./test-output
+
+    - name: Upload test artifacts
+      uses: actions/upload-artifact@v3
+      if: failure()
+      with:
+        name: test-artifacts
+        path: |
+          ./test-output/
+          ./testdata/
