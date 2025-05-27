@@ -1,0 +1,157 @@
+name: Release
+
+on:
+  push:
+    branches: [ main, master ]
+    paths-ignore:
+      - 'README.md'
+      - 'docs/**'
+      - '.gitignore'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., v1.1.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  # First, run tests to make sure everything works
+  test:
+    name: Test Before Release
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+
+    - name: Run tests
+      run: go test -v ./...
+
+  # Build and release
+  release:
+    name: Build and Release
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+
+    - name: Determine version
+      id: version
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          VERSION="${{ github.event.inputs.version }}"
+        else
+          # Auto-generate version based on timestamp and commit
+          VERSION="v$(date +%Y.%m.%d)-$(git rev-parse --short HEAD)"
+        fi
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "Version: $VERSION"
+
+    - name: Build binaries
+      run: |
+        mkdir -p dist
+
+        # Define platforms
+        platforms=(
+          "linux/amd64"
+          "linux/arm64"
+          "darwin/amd64"
+          "darwin/arm64"
+          "windows/amd64"
+          "windows/arm64"
+        )
+
+        for platform in "${platforms[@]}"; do
+          IFS='/' read -r GOOS GOARCH <<< "$platform"
+
+          # Set binary name
+          binary_name="dtoforge-${GOOS}-${GOARCH}"
+          if [ "$GOOS" = "windows" ]; then
+            binary_name="${binary_name}.exe"
+          fi
+
+          echo "Building for $GOOS/$GOARCH..."
+
+          # Build
+          env GOOS="$GOOS" GOARCH="$GOARCH" CGO_ENABLED=0 \
+            go build -ldflags="-w -s -X main.Version=${{ steps.version.outputs.version }}" \
+            -o "dist/$binary_name" .
+
+          # Create checksum
+          cd dist
+          sha256sum "$binary_name" > "$binary_name.sha256"
+          cd ..
+        done
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ steps.version.outputs.version }}
+        name: DtoForge ${{ steps.version.outputs.version }}
+        body: |
+          ## 🚀 DtoForge ${{ steps.version.outputs.version }}
+
+          ### What's New
+          - Enhanced configuration system with flexible output modes
+          - New `--no-config` flag for explicit control
+          - Deterministic property and import ordering
+          - Improved golden file testing with better diff output
+
+          ### 📥 Quick Install
+
+          **Linux/macOS:**
+          ```bash
+          # Download and install (replace with your platform)
+          curl -L https://github.com/eliraz-refael/dtoForge/releases/download/${{ steps.version.outputs.version }}/dtoforge-linux-amd64 -o dtoforge
+          chmod +x dtoforge
+          sudo mv dtoforge /usr/local/bin/
+          ```
+
+          **Windows:**
+          Download `dtoforge-windows-amd64.exe` and add to your PATH.
+
+          ### 🎯 Quick Start
+          ```bash
+          # Generate TypeScript schemas
+          dtoforge -openapi api.yaml -out ./generated
+
+          # Use single file mode
+          dtoforge -openapi api.yaml -config myconfig.yaml
+
+          # Generate without config file
+          dtoforge -openapi api.yaml --no-config
+          ```
+
+          ### 🔧 Platforms
+          - Linux (amd64, arm64)
+          - macOS (amd64, arm64)
+          - Windows (amd64, arm64)
+
+          ### 📝 Full Documentation
+          See the [README](https://github.com/eliraz-refael/dtoForge#readme) for complete usage instructions.
+
+          ---
+          **Commit:** ${{ github.sha }}
+        files: |
+          dist/*
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
