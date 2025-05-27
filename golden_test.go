@@ -1,9 +1,11 @@
 package main
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"dtoForge/internal/generator"
@@ -76,7 +78,7 @@ func runDtoForgeGeneration(openAPIFile, outputDir, configFile string) error {
 	// Generate code
 	genConfig := generator.Config{
 		OutputFolder:   outputDir,
-		PackageName:    "test-schemas",
+		PackageName:    "generated-schemas",
 		TargetLanguage: "typescript",
 		ConfigFile:     configFile,
 	}
@@ -84,6 +86,41 @@ func runDtoForgeGeneration(openAPIFile, outputDir, configFile string) error {
 	return tsGen.Generate(dtos, genConfig)
 }
 
+func diffLinesSimple(golden, output string, filename string) string {
+	goldenLines := strings.Split(golden, "\n")
+	outputLines := strings.Split(output, "\n")
+
+	var diff strings.Builder
+	diff.WriteString(fmt.Sprintf("=== DIFF for %s ===\n", filename))
+
+	maxLines := len(goldenLines)
+	if len(outputLines) > maxLines {
+		maxLines = len(outputLines)
+	}
+
+	for i := 0; i < maxLines; i++ {
+		var goldenLine, outputLine string
+
+		if i < len(goldenLines) {
+			goldenLine = goldenLines[i]
+		}
+		if i < len(outputLines) {
+			outputLine = outputLines[i]
+		}
+
+		if goldenLine != outputLine {
+			diff.WriteString(fmt.Sprintf("Line %d:\n", i+1))
+			diff.WriteString(fmt.Sprintf("  Expected: %s\n", goldenLine))
+			diff.WriteString(fmt.Sprintf("  Actual:   %s\n", outputLine))
+			diff.WriteString("\n")
+		}
+	}
+
+	return diff.String()
+}
+
+
+// compareWithGolden compares output with golden files and shows diffs
 func compareWithGolden(t *testing.T, outputDir, goldenDir string) {
 	// Walk through all files in the golden directory
 	err := filepath.Walk(goldenDir, func(goldenPath string, info os.FileInfo, err error) error {
@@ -116,14 +153,10 @@ func compareWithGolden(t *testing.T, outputDir, goldenDir string) {
 		goldenContent := testutils.ReadFile(t, goldenPath)
 		outputContent := testutils.ReadFile(t, outputPath)
 
-		// Normalize whitespace for comparison
-		goldenNormalized := testutils.NormalizeWhitespace(goldenContent)
-		outputNormalized := testutils.NormalizeWhitespace(outputContent)
-
 		// Compare content
-		if goldenNormalized != outputNormalized {
-			t.Errorf("File %s differs from golden file:\n--- Golden ---\n%s\n--- Output ---\n%s",
-				relPath, goldenContent, outputContent)
+		if goldenContent != outputContent {
+			diff := diffLinesSimple(goldenContent, outputContent, relPath)
+			t.Errorf("File %s differs from golden file:\n%s", relPath, diff)
 		}
 
 		return nil
@@ -251,6 +284,7 @@ func TestGoldenFilesWithUpdate(t *testing.T) {
 			if updateGolden {
 				updateGoldenFiles(t, outputDir, tc.goldenDir)
 				t.Log("Updated golden files for", tc.name)
+				return
 			} else {
 				compareWithGolden(t, outputDir, tc.goldenDir)
 			}

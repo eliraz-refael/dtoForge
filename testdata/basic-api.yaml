@@ -1,0 +1,80 @@
+openapi: 3.0.0
+info:
+  title: Basic Test API
+  version: 1.0.0
+  description: A simple API for testing DtoForge basic functionality
+
+components:
+  schemas:
+    User:
+      type: object
+      description: A user in the system
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: string
+          description: Unique user identifier
+        name:
+          type: string
+          description: Full name of the user
+        email:
+          type: string
+          format: email
+          description: User's email address
+        age:
+          type: integer
+          description: User's age (optional)
+        isActive:
+          type: boolean
+          description: Whether the user account is active
+
+    Product:
+      type: object
+      description: A product in the catalog
+      required:
+        - id
+        - name
+        - price
+      properties:
+        id:
+          type: string
+          description: Product identifier
+        name:
+          type: string
+          description: Product name
+        description:
+          type: string
+          description: Product description
+        price:
+          type: number
+          description: Product price
+        category:
+          $ref: '#/components/schemas/Category'
+
+    Category:
+      type: object
+      description: Product category
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: string
+          description: Category identifier
+        name:
+          type: string
+          description: Category name
+        parentId:
+          type: string
+          description: Parent category ID (for nested categories)
+
+    Status:
+      type: string
+      description: Status enumeration
+      enum:
+        - active
+        - inactive
+        - pending
+        - archived

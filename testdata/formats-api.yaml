@@ -1,0 +1,92 @@
+openapi: 3.0.0
+info:
+  title: Formats Test API
+  version: 1.0.0
+  description: API for testing custom format mappings in DtoForge
+
+components:
+  schemas:
+    User:
+      type: object
+      description: User with various formatted fields
+      required:
+        - id
+        - email
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique user identifier (UUID)
+        email:
+          type: string
+          format: email
+          description: User's email address
+        createdAt:
+          type: string
+          format: date-time
+          description: Account creation timestamp
+        birthDate:
+          type: string
+          format: date
+          description: User's birth date
+        profilePicture:
+          type: string
+          format: uri
+          description: URL to user's profile picture
+        avatarData:
+          type: string
+          format: binary
+          description: Base64 encoded avatar image
+
+    Event:
+      type: object
+      description: System event with timestamps
+      required:
+        - eventId
+        - timestamp
+      properties:
+        eventId:
+          type: string
+          format: uuid
+          description: Event identifier
+        timestamp:
+          type: string
+          format: date-time
+          description: When the event occurred
+        scheduledFor:
+          type: string
+          format: date-time
+          description: When the event is scheduled
+        eventDate:
+          type: string
+          format: date
+          description: Date of the event (without time)
+        resourceUrl:
+          type: string
+          format: uri
+          description: Related resource URL
+
+    Document:
+      type: object
+      description: Document with metadata
+      required:
+        - documentId
+        - uploadedAt
+      properties:
+        documentId:
+          type: string
+          format: uuid
+          description: Document identifier
+        uploadedAt:
+          type: string
+          format: date-time
+          description: Upload timestamp
+        content:
+          type: string
+          format: binary
+          description: Document content (base64 encoded)
+        downloadUrl:
+          type: string
+          format: uri
+          description: Download URL

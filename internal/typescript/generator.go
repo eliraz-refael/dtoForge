@@ -133,7 +133,6 @@ func (g *TypeScriptGenerator) generateSingleFile(dtos []generator.DTO, config ge
 	return tmpl.Execute(file, data)
 }
 
-// Updated generateDTOFile to accept genConfig
 func (g *TypeScriptGenerator) generateDTOFile(dto generator.DTO, config generator.Config, genConfig GenerationConfig) error {
 	filename := fmt.Sprintf("%s%s", g.toKebabCase(dto.Name), g.FileExtension())
 	filepath := filepath.Join(config.OutputFolder, filename)
@@ -162,7 +161,6 @@ func (g *TypeScriptGenerator) generateDTOFile(dto generator.DTO, config generato
 		PackageName:           g.getPackageName(config),
 		GeneratePartialCodecs: genConfig.GeneratePartialCodecs,
 	}
-
 	return tmpl.Execute(file, data)
 }
 

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"sort"
 
 	"gopkg.in/yaml.v3"
 )
@@ -135,17 +136,23 @@ func (r *CustomTypeRegistry) GetAllImports(usedFormats []string) []string {
 	importSet := make(map[string]bool)
 	var imports []string
 
-	// Always include io-ts
+	// Always include io-ts first
 	imports = append(imports, "import * as t from 'io-ts';")
 
+	// Collect all custom type imports
+	var customImports []string
 	for _, format := range usedFormats {
 		if mapping, exists := r.mappings[format]; exists && mapping.ImportStatement != "" {
 			if !importSet[mapping.ImportStatement] {
-				imports = append(imports, mapping.ImportStatement)
+				customImports = append(customImports, mapping.ImportStatement)
 				importSet[mapping.ImportStatement] = true
 			}
 		}
 	}
+
+	// Sort custom imports alphabetically for consistent output
+	sort.Strings(customImports)
+	imports = append(imports, customImports...)
 
 	return imports
 }
