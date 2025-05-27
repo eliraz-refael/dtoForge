@@ -579,6 +579,37 @@ MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
 
+## 💖 Support DtoForge
+
+If DtoForge saves you time and makes your development workflow better, consider supporting its development:
+
+<div align="center">
+
+[![Ko-fi](https://img.shields.io/badge/Ko--fi-F16061?style=for-the-badge&logo=ko-fi&logoColor=white)](https://ko-fi.com/elirazkedmi)
+
+**Every contribution helps keep this project alive and growing! 🚀**
+
+</div>
+
+### Why Support DtoForge?
+
+- 🛠️ **Active Development** - Regular updates and new features
+- 🐛 **Bug Fixes** - Quick response to issues and problems  
+- 📚 **Documentation** - Comprehensive guides and examples
+- 💡 **Feature Requests** - Your ideas shape the future of DtoForge
+- ⚡ **Performance** - Continuous optimization and improvements
+
+### What Your Support Enables:
+
+- More time for development and maintenance
+- Better documentation and tutorials
+- Additional language generators (C#, Java, Python)
+- Community support and faster issue resolution
+
+---
+
+*DtoForge is an open source project built with ❤️ by developers, for developers.*
+
 **Made with ❤️ by developers, for developers**
 
 *DtoForge helps you build type-safe applications by bridging the gap between API specifications and runtime validation. Whether you prefer multiple organized files or a single consolidated schema file, DtoForge adapts to your project structure.*
