@@ -1,9 +1,9 @@
 package main
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
-	"os"
 
 	"dtoForge/internal/generator"
 	"dtoForge/internal/testutils"

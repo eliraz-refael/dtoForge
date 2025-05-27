@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,10 +14,10 @@ import (
 
 func TestGoldenFiles(t *testing.T) {
 	testCases := []struct {
-		name         string
-		openAPIFile  string
-		configFile   string
-		goldenDir    string
+		name        string
+		openAPIFile string
+		configFile  string
+		goldenDir   string
 	}{
 		{
 			name:        "basic-schemas",
@@ -118,7 +117,6 @@ func diffLinesSimple(golden, output string, filename string) string {
 
 	return diff.String()
 }
-
 
 // compareWithGolden compares output with golden files and shows diffs
 func compareWithGolden(t *testing.T, outputDir, goldenDir string) {
@@ -239,7 +237,7 @@ func updateGoldenFiles(t *testing.T, outputDir, goldenDir string) {
 
 		// Copy file content using ioutil.WriteFile directly
 		content := testutils.ReadFile(t, outputPath)
-		if err := ioutil.WriteFile(goldenPath, []byte(content), 0644); err != nil {
+		if err := os.WriteFile(goldenPath, []byte(content), 0644); err != nil {
 			return err
 		}
 
@@ -256,10 +254,10 @@ func TestGoldenFilesWithUpdate(t *testing.T) {
 	updateGolden := os.Getenv("UPDATE_GOLDEN") == "true"
 
 	testCases := []struct {
-		name         string
-		openAPIFile  string
-		configFile   string
-		goldenDir    string
+		name        string
+		openAPIFile string
+		configFile  string
+		goldenDir   string
 	}{
 		{
 			name:        "basic-schemas",

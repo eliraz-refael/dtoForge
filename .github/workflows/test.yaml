@@ -1,22 +1,24 @@
 name: Test
 
 on:
-  push:
-    branches: [ main ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, master ]
+  push:
+    branches: [ main, master ]
 
 jobs:
   test:
+    name: Test
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
+    - name: Check out code
+      uses: actions/checkout@v4
 
     - name: Set up Go
-      uses: actions/setup-go@v3
+      uses: actions/setup-go@v4
       with:
-        go-version: 1.21
+        go-version: '1.21'
 
     - name: Cache Go modules
       uses: actions/cache@v3
@@ -26,32 +28,39 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-go-
 
-    - name: Install dependencies
+    - name: Download dependencies
       run: go mod download
 
-    - name: Run unit tests
-      run: go test -v ./...
+    - name: Verify dependencies
+      run: go mod verify
 
-    - name: Run integration tests
-      run: go test -v -tags=integration ./...
-
-    - name: Run golden file tests
-      run: go test -v -tags=golden ./...
-
-    - name: Test build
+    - name: Build
       run: go build -v ./...
 
-    - name: Test CLI functionality
-      run: |
-        go build -o dtoforge
-        ./dtoforge -example-config
-        ./dtoforge -openapi testdata/basic-api.yaml -out ./test-output
+    - name: Run tests
+      run: go test -v ./...
 
-    - name: Upload test artifacts
-      uses: actions/upload-artifact@v3
-      if: failure()
-      with:
-        name: test-artifacts
-        path: |
-          ./test-output/
-          ./testdata/
+    - name: Run tests with race detector
+      run: go test -race -v ./...
+
+    - name: Format Go code and check for changes
+      run: |
+        echo "Auto-formatting Go code..."
+        gofmt -s -w .
+
+        # Check if there were any changes
+        if ! git diff --quiet; then
+          echo "❌ Code was not properly formatted. The following changes were made:"
+          git diff --name-only
+          echo ""
+          echo "Please run 'gofmt -s -w .' locally and commit the formatting changes."
+          echo ""
+          echo "Showing the actual differences:"
+          git diff
+          exit 1
+        else
+          echo "✅ All Go code is properly formatted!"
+        fi
+
+    - name: Run go vet
+      run: go vet ./...
