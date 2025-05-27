@@ -6,7 +6,7 @@ DtoForge transforms your OpenAPI 3.0 specifications into type-safe TypeScript sc
 
 [![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.21-007d9c.svg)](https://golang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Build Status](https://github.com/eliraz-refael/dtoForge/workflows/test/badge.svg)](https://github.com/eliraz-refael/dtoForge/actions)
+[![Test](https://github.com/eliraz-refael/dtoForge/actions/workflows/test.yaml/badge.svg)](https://github.com/eliraz-refael/dtoForge/actions/workflows/test.yaml)
 
 ## ✨ Features
 
