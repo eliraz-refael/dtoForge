@@ -3,6 +3,7 @@ package main
 import (
 	"path/filepath"
 	"testing"
+	"os"
 
 	"dtoForge/internal/generator"
 	"dtoForge/internal/testutils"
@@ -51,7 +52,7 @@ components:
 				},
 				"index.ts": {
 					"export * from './user';",
-					"import * as t from 'io-ts';",
+					"export * as t from 'io-ts';",
 				},
 			},
 		},
@@ -104,6 +105,10 @@ customTypes:
 			// Setup test environment
 			tempDir := testutils.TempDir(t)
 			outputDir := filepath.Join(tempDir, "output")
+
+			if err := os.MkdirAll(outputDir, 0755); err != nil {
+				t.Fatalf("Failed to create output directory: %v", err)
+			}
 
 			openAPIPath := testutils.WriteFile(t, tempDir, "api.yaml", tt.openAPISpec)
 

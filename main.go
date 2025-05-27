@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sort"
 
 	"gopkg.in/yaml.v3"
 
@@ -21,6 +22,7 @@ type Config struct {
 	TargetLanguage string
 	PackageName    string
 	ConfigFile     string // New: path to config file
+	NoConfig       bool   // New: disable config file discovery
 }
 
 // OpenAPISpec is a minimal representation of an OpenAPI 3 spec.
@@ -37,13 +39,14 @@ func parseCLIArgs() Config {
 	targetLang := flag.String("lang", "typescript", "Target language (typescript)")
 	packageName := flag.String("package", "", "Package/module name (optional)")
 	configFile := flag.String("config", "", "Path to dtoforge config file (optional)")
+	noConfig := flag.Bool("no-config", false, "Disable automatic config file discovery")
 
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "DtoForge - OpenAPI to io-ts code generator\n\n")
 		fmt.Fprintf(os.Stderr, "Usage: %s [options]\n\n", os.Args[0])
 		fmt.Fprintf(os.Stderr, "Options:\n")
 		flag.PrintDefaults()
-		fmt.Fprintf(os.Stderr, "\nConfig file discovery (if -config not specified):\n")
+		fmt.Fprintf(os.Stderr, "\nConfig file discovery (if -config not specified and -no-config not set):\n")
 		fmt.Fprintf(os.Stderr, "  1. ./dtoforge.config.yaml (current directory)\n")
 		fmt.Fprintf(os.Stderr, "  2. Same directory as OpenAPI file\n")
 		fmt.Fprintf(os.Stderr, "  3. Same directory as binary\n")
@@ -77,11 +80,17 @@ func parseCLIArgs() Config {
 		TargetLanguage: *targetLang,
 		PackageName:    *packageName,
 		ConfigFile:     *configFile,
+		NoConfig:       *noConfig,
 	}
 }
 
 // discoverConfigFile finds the config file using the discovery logic
 func discoverConfigFile(config Config) string {
+	// If --no-config flag is set, return empty string (no config)
+	if config.NoConfig {
+		return ""
+	}
+
 	// If explicitly specified, use that
 	if config.ConfigFile != "" {
 		return config.ConfigFile
@@ -192,7 +201,16 @@ func convertSchemaToGeneratorDTO(name string, schema map[string]interface{}) (ge
 	if typ, ok := schema["type"].(string); ok && typ == "object" {
 		dto.Type = "object"
 		if props, ok := schema["properties"].(map[string]interface{}); ok {
-			for propName, propVal := range props {
+			// IMPORTANT: Sort property names for consistent ordering
+			var propNames []string
+			for propName := range props {
+				propNames = append(propNames, propName)
+			}
+			sort.Strings(propNames) // This ensures consistent property order
+
+			// Process properties in sorted order
+			for _, propName := range propNames {
+				propVal := props[propName]
 				if propSchema, ok := propVal.(map[string]interface{}); ok {
 					property, err := convertSchemaToGeneratorProperty(propName, propSchema, dto.Required)
 					if err != nil {
@@ -324,7 +342,9 @@ func main() {
 
 	// Discover config file BEFORE setting up output directory
 	configFile := discoverConfigFile(config)
-	if configFile != "" {
+	if config.NoConfig {
+		fmt.Printf("📝 Config file discovery disabled (--no-config flag)\n")
+	} else if configFile != "" {
 		fmt.Printf("📝 Using config file: %s\n", configFile)
 	} else {
 		fmt.Printf("📝 No config file found, using defaults\n")
@@ -347,6 +367,7 @@ func main() {
 		}
 	}
 
+	// Rest of main() stays the same...
 	// Ensure output directory exists
 	if err := os.MkdirAll(finalOutputFolder, 0755); err != nil {
 		fmt.Printf("Error creating output directory: %v\n", err)
@@ -376,10 +397,10 @@ func main() {
 
 	// Generate code
 	genConfig := generator.Config{
-		OutputFolder:   finalOutputFolder, // Use the resolved output folder
+		OutputFolder:   finalOutputFolder,
 		PackageName:    config.PackageName,
 		TargetLanguage: config.TargetLanguage,
-		ConfigFile:     configFile,
+		ConfigFile:     configFile, // This will be empty if --no-config is used
 	}
 
 	if err := gen.Generate(dtos, genConfig); err != nil {

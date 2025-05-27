@@ -1,0 +1,36 @@
+customTypes:
+  # UUID with branded type
+  uuid:
+    ioTsType: "UUID"
+    typeScriptType: "UUID"
+    import: "import { UUID } from './branded-types';"
+
+  # Date-time with branded type
+  date-time:
+    ioTsType: "DateTimeString"
+    typeScriptType: "DateTimeString"
+    import: "import { DateTimeString } from './branded-types';"
+
+  # Date with branded type
+  date:
+    ioTsType: "DateString"
+    typeScriptType: "DateString"
+    import: "import { DateString } from './branded-types';"
+
+  # Email with branded type
+  email:
+    ioTsType: "EmailString"
+    typeScriptType: "EmailString"
+    import: "import { EmailString } from './branded-types';"
+
+  # URI with branded type
+  uri:
+    ioTsType: "URLString"
+    typeScriptType: "URLString"
+    import: "import { URLString } from './branded-types';"
+
+  # Binary data as base64
+  binary:
+    ioTsType: "Base64String"
+    typeScriptType: "Base64String"
+    import: "import { Base64String } from './branded-types';"
