@@ -524,8 +524,6 @@ go test -v ./...
 - [ ] **C# Generator** - Generate C# classes with validation
 - [ ] **Java Generator** - Generate Java POJOs with Bean Validation
 - [ ] **Advanced OpenAPI Features** - Support for `allOf`, `oneOf`, `anyOf`
-- [ ] **Configuration UI** - Web interface for creating custom type mappings
-- [ ] **IDE Plugins** - VSCode extension for inline validation
 - [ ] **JSON Schema Support** - Direct JSON Schema input
 - [ ] **OpenAPI 3.1 Support** - Latest specification features
 
