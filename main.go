@@ -3,11 +3,10 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strings"
 	"sort"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 
@@ -132,7 +131,7 @@ func generateExampleConfig() error {
 // ... rest of the functions remain the same (readOpenAPISpec, convertToGeneratorDTOs, etc.)
 
 func readOpenAPISpec(path string) (*OpenAPISpec, error) {
-	data, err := ioutil.ReadFile(path)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file %s: %w", path, err)
 	}

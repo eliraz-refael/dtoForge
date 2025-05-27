@@ -11,14 +11,14 @@ type PrimitiveType struct {
 	Format string `json:"format,omitempty"` // date-time, uuid, email, etc.
 }
 
-func (p PrimitiveType) TypeName() string { return p.Name }
+func (p PrimitiveType) TypeName() string  { return p.Name }
 func (p PrimitiveType) GetFormat() string { return p.Format } // Added this method
 
 // ObjectType represents a nested object type.
 type ObjectType struct {
-	DTORef   *DTO   `json:"dtoRef,omitempty"`
-	RefName  string `json:"refName,omitempty"`
-	Inline   bool   `json:"inline"`
+	DTORef  *DTO   `json:"dtoRef,omitempty"`
+	RefName string `json:"refName,omitempty"`
+	Inline  bool   `json:"inline"`
 }
 
 func (o ObjectType) TypeName() string {

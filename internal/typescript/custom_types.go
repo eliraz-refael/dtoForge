@@ -32,9 +32,9 @@ type CustomTypeMapping struct {
 
 // EnhancedCustomTypeConfig represents the complete YAML configuration structure
 type EnhancedCustomTypeConfig struct {
-	Output      OutputConfig                    `yaml:"output"`
-	CustomTypes map[string]CustomTypeMapping    `yaml:"customTypes"`
-	Generation  GenerationConfig                `yaml:"generation"`
+	Output      OutputConfig                 `yaml:"output"`
+	CustomTypes map[string]CustomTypeMapping `yaml:"customTypes"`
+	Generation  GenerationConfig             `yaml:"generation"`
 }
 
 // CustomTypeRegistry holds all custom type mappings and config

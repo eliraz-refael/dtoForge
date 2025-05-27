@@ -14,7 +14,7 @@ import (
 type TestCase struct {
 	Name        string
 	OpenAPISpec string
-	Config      string // YAML config content (optional)
+	Config      string            // YAML config content (optional)
 	Expected    map[string]string // filename -> expected content
 }
 

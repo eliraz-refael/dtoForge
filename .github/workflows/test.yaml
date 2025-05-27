@@ -43,12 +43,23 @@ jobs:
     - name: Run tests with race detector
       run: go test -race -v ./...
 
-    - name: Check formatting
+    - name: Format Go code and check for changes
       run: |
-        if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then
-          echo "Code is not formatted properly:"
-          gofmt -s -l .
+        echo "Auto-formatting Go code..."
+        gofmt -s -w .
+
+        # Check if there were any changes
+        if ! git diff --quiet; then
+          echo "❌ Code was not properly formatted. The following changes were made:"
+          git diff --name-only
+          echo ""
+          echo "Please run 'gofmt -s -w .' locally and commit the formatting changes."
+          echo ""
+          echo "Showing the actual differences:"
+          git diff
           exit 1
+        else
+          echo "✅ All Go code is properly formatted!"
         fi
 
     - name: Run go vet
