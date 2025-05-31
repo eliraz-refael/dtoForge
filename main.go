@@ -12,19 +12,18 @@ import (
 
 	"dtoForge/internal/generator"
 	"dtoForge/internal/typescript"
+	"dtoForge/internal/zod"
 )
 
-// Config holds the command-line configuration.
 type Config struct {
 	OpenAPIFile    string
 	OutputFolder   string
 	TargetLanguage string
 	PackageName    string
-	ConfigFile     string // New: path to config file
-	NoConfig       bool   // New: disable config file discovery
+	ConfigFile     string
+	NoConfig       bool
 }
 
-// OpenAPISpec is a minimal representation of an OpenAPI 3 spec.
 type OpenAPISpec struct {
 	OpenAPI    string                 `yaml:"openapi"`
 	Info       map[string]interface{} `yaml:"info"`
@@ -35,16 +34,19 @@ type OpenAPISpec struct {
 func parseCLIArgs() Config {
 	openAPIFile := flag.String("openapi", "", "Path to the OpenAPI spec file (JSON or YAML)")
 	outputFolder := flag.String("out", "./generated", "Output folder for generated files")
-	targetLang := flag.String("lang", "typescript", "Target language (typescript)")
+	targetLang := flag.String("lang", "typescript", "Target language (typescript, typescript-zod)")
 	packageName := flag.String("package", "", "Package/module name (optional)")
 	configFile := flag.String("config", "", "Path to dtoforge config file (optional)")
 	noConfig := flag.Bool("no-config", false, "Disable automatic config file discovery")
 
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "DtoForge - OpenAPI to io-ts code generator\n\n")
+		fmt.Fprintf(os.Stderr, "DtoForge - OpenAPI to TypeScript schema generator\n\n")
 		fmt.Fprintf(os.Stderr, "Usage: %s [options]\n\n", os.Args[0])
 		fmt.Fprintf(os.Stderr, "Options:\n")
 		flag.PrintDefaults()
+		fmt.Fprintf(os.Stderr, "\nSupported languages:\n")
+		fmt.Fprintf(os.Stderr, "  typescript     - TypeScript with io-ts validation (default)\n")
+		fmt.Fprintf(os.Stderr, "  typescript-zod - TypeScript with Zod validation\n")
 		fmt.Fprintf(os.Stderr, "\nConfig file discovery (if -config not specified and -no-config not set):\n")
 		fmt.Fprintf(os.Stderr, "  1. ./dtoforge.config.yaml (current directory)\n")
 		fmt.Fprintf(os.Stderr, "  2. Same directory as OpenAPI file\n")
@@ -319,17 +321,16 @@ func extractRefName(ref string) string {
 	return parts[len(parts)-1]
 }
 
-// Updated main.go logic to support config-based output folder
-
 func main() {
 	config := parseCLIArgs()
 
-	// Create generator registry
 	registry := generator.NewRegistry()
 
-	// Create TypeScript generator
 	tsGen := typescript.NewTypeScriptGenerator()
 	registry.Register(tsGen)
+
+	zodGen := zod.NewZodGenerator()
+	registry.Register(zodGen)
 
 	// Get the appropriate generator
 	gen, err := registry.Get(config.TargetLanguage)
@@ -366,8 +367,6 @@ func main() {
 		}
 	}
 
-	// Rest of main() stays the same...
-	// Ensure output directory exists
 	if err := os.MkdirAll(finalOutputFolder, 0755); err != nil {
 		fmt.Printf("Error creating output directory: %v\n", err)
 		os.Exit(1)
