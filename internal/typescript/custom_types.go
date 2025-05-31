@@ -2,7 +2,6 @@ package typescript
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"sort"
 
@@ -163,7 +162,7 @@ func (r *CustomTypeRegistry) LoadFromConfig(configPath string) error {
 		return nil // Config file is optional
 	}
 
-	data, err := ioutil.ReadFile(configPath)
+	data, err := os.ReadFile(configPath)
 	if err != nil {
 		return fmt.Errorf("failed to read config file %s: %w", configPath, err)
 	}
@@ -239,7 +238,7 @@ func (r *CustomTypeRegistry) SaveExampleConfig(configPath string) error {
 		return fmt.Errorf("failed to marshal example config: %w", err)
 	}
 
-	if err := ioutil.WriteFile(configPath, data, 0644); err != nil {
+	if err := os.WriteFile(configPath, data, 0644); err != nil {
 		return fmt.Errorf("failed to write example config: %w", err)
 	}
 
