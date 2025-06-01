@@ -1,0 +1,37 @@
+{
+  "name": "dtoforge",
+  "version": "${VERSION}",
+  "description": "OpenAPI to TypeScript Schema Generator with Runtime Validation",
+  "bin": {
+    "dtoforge": "./bin/dtoForge"
+  },
+  "scripts": {
+    "postinstall": "node install.js"
+  },
+  "files": [
+    "install.js",
+    "bin/"
+  ],
+  "keywords": ["openapi", "typescript", "validation", "io-ts", "zod", "schema", "dto"],
+  "author": "Eliraz Kedmi",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/eliraz-refael/dtoForge.git"
+  },
+  "homepage": "https://github.com/eliraz-refael/dtoForge#readme",
+  "bugs": {
+    "url": "https://github.com/eliraz-refael/dtoForge/issues"
+  },
+  "optionalDependencies": {
+    "dtoforge-darwin-x64": "${VERSION}",
+    "dtoforge-darwin-arm64": "${VERSION}",
+    "dtoforge-linux-x64": "${VERSION}",
+    "dtoforge-linux-arm64": "${VERSION}",
+    "dtoforge-win32-x64": "${VERSION}",
+    "dtoforge-win32-arm64": "${VERSION}"
+  },
+  "engines": {
+    "node": ">=14"
+  }
+}
