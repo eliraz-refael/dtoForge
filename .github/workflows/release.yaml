@@ -74,7 +74,7 @@ jobs:
         if git tag -l | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+
 
     - name: Determine version bump type
-      id: version_type
+      id: determine_version_type
       run: |
         VERSION_TYPE="patch"  # default
 
@@ -109,10 +109,10 @@ jobs:
         echo "Final version type: $VERSION_TYPE"
 
     - name: Calculate new version
-      id: new_version
+      id: calculate_version
       run: |
         LATEST_TAG="${{ steps.get_latest_tag.outputs.latest_tag }}"
-        VERSION_TYPE="${{ steps.version_type.outputs.version_type }}"
+        VERSION_TYPE="${{ steps.determine_version_type.outputs.version_type }}"
 
         if [ "$VERSION_TYPE" = "custom" ]; then
           NEW_VERSION="${{ github.event.inputs.custom_version }}"
@@ -153,7 +153,7 @@ jobs:
       id: release_notes
       run: |
         LATEST_TAG="${{ steps.get_latest_tag.outputs.latest_tag }}"
-        NEW_VERSION="${{ steps.new_version.outputs.new_version }}"
+        NEW_VERSION="${{ steps.calculate_version.outputs.new_version }}"
 
         # Determine commit range for release notes
         if [ "$LATEST_TAG" = "v0.0.0" ]; then
@@ -180,7 +180,7 @@ jobs:
 
         # Create release notes
         cat > release_notes.md << 'EOF'
-        ## 🚀 DtoForge ${{ steps.new_version.outputs.new_version }}
+        ## 🚀 DtoForge ${{ steps.calculate_version.outputs.new_version }}
         EOF
 
         # Add migration note if this is the first semantic release
@@ -222,7 +222,7 @@ jobs:
         **Linux/macOS:**
         ```bash
         # Download and install (replace with your platform)
-        curl -L https://github.com/eliraz-refael/dtoForge/releases/download/${{ steps.new_version.outputs.new_version }}/dtoforge-linux-amd64 -o dtoforge
+        curl -L https://github.com/eliraz-refael/dtoForge/releases/download/${{ steps.calculate_version.outputs.new_version }}/dtoforge-linux-amd64 -o dtoforge
         chmod +x dtoforge
         sudo mv dtoforge /usr/local/bin/
         ```
@@ -289,7 +289,7 @@ jobs:
 
           # Build with version info
           env GOOS="$GOOS" GOARCH="$GOARCH" CGO_ENABLED=0 \
-            go build -ldflags="-w -s -X main.Version=${{ steps.new_version.outputs.new_version }}" \
+            go build -ldflags="-w -s -X main.Version=${{ steps.calculate_version.outputs.new_version }}" \
             -o "dist/$binary_name" .
 
           # Create checksum
@@ -301,8 +301,8 @@ jobs:
     - name: Create Release
       uses: softprops/action-gh-release@v1
       with:
-        tag_name: ${{ steps.new_version.outputs.new_version }}
-        name: DtoForge ${{ steps.new_version.outputs.new_version }}
+        tag_name: ${{ steps.calculate_version.outputs.new_version }}
+        name: DtoForge ${{ steps.calculate_version.outputs.new_version }}
         body: ${{ steps.release_notes.outputs.release_notes }}
         files: |
           dist/*
@@ -313,9 +313,9 @@ jobs:
 
     - name: Release Summary
       run: |
-        echo "🎉 Successfully released DtoForge ${{ steps.new_version.outputs.new_version }}"
+        echo "🎉 Successfully released DtoForge ${{ steps.calculate_version.outputs.new_version }}"
         echo "📝 Release notes generated from commits since ${{ steps.get_latest_tag.outputs.latest_tag }}"
-        echo "🔗 Release URL: https://github.com/eliraz-refael/dtoForge/releases/tag/${{ steps.new_version.outputs.new_version }}" | sort -V | tail -1; then
+        echo "🔗 Release URL: https://github.com/eliraz-refael/dtoForge/releases/tag/${{ steps.calculate_version.outputs.new_version }}" | sort -V | tail -1; then
           LATEST_SEMANTIC_TAG=$(git tag -l | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+
 
     - name: Determine version bump type
