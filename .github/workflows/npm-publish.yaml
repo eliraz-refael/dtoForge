@@ -1,0 +1,146 @@
+name: Publish to NPM
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  publish-platform-packages:
+    name: Publish Platform-Specific Packages
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        platform:
+          - { name: "darwin-x64", binary: "dtoForge-darwin-amd64" }
+          - { name: "darwin-arm64", binary: "dtoForge-darwin-arm64" }
+          - { name: "linux-x64", binary: "dtoForge-linux-amd64" }
+          - { name: "linux-arm64", binary: "dtoForge-linux-arm64" }
+          - { name: "win32-x64", binary: "dtoForge-windows-amd64.exe" }
+          - { name: "win32-arm64", binary: "dtoForge-windows-arm64.exe" }
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        registry-url: 'https://registry.npmjs.org'
+
+    - name: Get release version
+      id: get_version
+      run: |
+        # Remove 'v' prefix from tag name
+        VERSION=${GITHUB_REF#refs/tags/v}
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+    - name: Download release binary
+      run: |
+        mkdir -p npm-packages/${{ matrix.platform.name }}
+        cd npm-packages/${{ matrix.platform.name }}
+
+        # Download the binary for this platform from GitHub releases
+        curl -L -o binary.tmp \
+          "https://github.com/eliraz-refael/dtoForge/releases/download/${{ github.ref_name }}/${{ matrix.platform.binary }}"
+
+        # Rename to the correct camelCase name that our install.js expects
+        if [[ "${{ matrix.platform.name }}" == *"win32"* ]]; then
+          mv binary.tmp dtoForge.exe
+        else
+          mv binary.tmp dtoForge
+          chmod +x dtoForge
+        fi
+
+    - name: Create platform package.json
+      run: |
+        cd npm-packages/${{ matrix.platform.name }}
+
+        # Extract OS and CPU for package.json
+        IFS='-' read -r os cpu <<< "${{ matrix.platform.name }}"
+
+        cat > package.json << EOF
+        {
+          "name": "dtoforge-${{ matrix.platform.name }}",
+          "version": "${{ steps.get_version.outputs.version }}",
+          "description": "DtoForge binary for ${{ matrix.platform.name }}",
+          "main": "dtoForge$([[ "${{ matrix.platform.name }}" == *"win32"* ]] && echo ".exe" || echo "")",
+          "files": [
+            "dtoForge$([[ "${{ matrix.platform.name }}" == *"win32"* ]] && echo ".exe" || echo "")"
+          ],
+          "keywords": ["dtoforge", "binary", "$os"],
+          "author": "Eliraz Kedmi",
+          "license": "MIT",
+          "repository": {
+            "type": "git",
+            "url": "https://github.com/eliraz-refael/dtoForge.git"
+          },
+          "os": ["$os"],
+          "cpu": ["$([[ "$cpu" == "amd64" ]] && echo "x64" || echo "$cpu")"]
+        }
+        EOF
+
+    - name: Publish platform package
+      run: |
+        cd npm-packages/${{ matrix.platform.name }}
+        npm publish --access public
+      env:
+        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  publish-main-package:
+    name: Publish Main Package
+    runs-on: ubuntu-latest
+    needs: publish-platform-packages
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        registry-url: 'https://registry.npmjs.org'
+
+    - name: Get release version
+      id: get_version
+      run: |
+        VERSION=${GITHUB_REF#refs/tags/v}
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+    - name: Create npm package structure
+      run: |
+        mkdir -p npm-main
+        cd npm-main
+
+        # Copy install script from repo
+        cp ../scripts/npm/install.js .
+
+        # Create package.json from template with version substitution
+        envsubst < ../scripts/npm/package.json.template > package.json
+
+    - name: Create install script
+      run: |
+        cd npm-main
+        # Copy the install.js script we created earlier
+        # You'll need to create this file in your repo at scripts/npm/install.js
+
+    - name: Publish main package
+      run: |
+        cd npm-main
+
+        # Set the VERSION environment variable for envsubst
+        export VERSION="${{ steps.get_version.outputs.version }}"
+
+        # Use envsubst to substitute VERSION in the template
+        envsubst < ../scripts/npm/package.json.template > package.json
+
+        npm publish --access public
+      env:
+        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+    - name: Summary
+      run: |
+        echo "🎉 Successfully published DtoForge v${{ steps.get_version.outputs.version }} to npm!"
+        echo "📦 Main package: https://www.npmjs.com/package/dtoforge"
+        echo "💾 Install with: npm install -g dtoforge"
