@@ -9,7 +9,7 @@ on:
       - '.gitignore'
   workflow_dispatch:
     inputs:
-      version_type:
+      bump_type:
         description: 'Version bump type'
         required: false
         default: 'auto'
@@ -20,7 +20,7 @@ on:
           - minor
           - major
       custom_version:
-        description: 'Custom version (e.g., v1.2.3) - overrides version_type'
+        description: 'Custom version (e.g., v1.2.3) - overrides bump_type'
         required: false
         type: string
 
@@ -28,7 +28,6 @@ permissions:
   contents: write
 
 jobs:
-  # First, run tests to make sure everything works
   test:
     name: Test Before Release
     runs-on: ubuntu-latest
@@ -47,7 +46,6 @@ jobs:
     - name: Run tests
       run: go test -v ./...
 
-  # Build and release
   release:
     name: Build and Release
     runs-on: ubuntu-latest
@@ -64,71 +62,85 @@ jobs:
       with:
         go-version: '1.21'
 
-    - name: Get latest tag
-      id: get_latest_tag
+    - name: Find latest semantic tag
+      id: find_tag
       run: |
-        # Get all tags and find the latest semantic version
-        LATEST_SEMANTIC_TAG=""
-
         # Look for existing semantic version tags first
-        if git tag -l | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+
+        SEMANTIC_TAG=$(git tag -l | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1 || echo "")
 
-    - name: Determine version bump type
-      id: determine_version_type
-      run: |
-        VERSION_TYPE="patch"  # default
+        if [ -n "$SEMANTIC_TAG" ]; then
+          echo "Found existing semantic tag: $SEMANTIC_TAG"
+          echo "baseline_tag=$SEMANTIC_TAG" >> $GITHUB_OUTPUT
+        else
+          # No semantic tags found, check if we have any tags at all
+          ANY_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
 
-        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-          if [ -n "${{ github.event.inputs.custom_version }}" ]; then
-            echo "version_type=custom" >> $GITHUB_OUTPUT
-            echo "Using custom version from input"
-            exit 0
-          elif [ "${{ github.event.inputs.version_type }}" != "auto" ]; then
-            VERSION_TYPE="${{ github.event.inputs.version_type }}"
-            echo "Using manual version type: $VERSION_TYPE"
+          if [ -n "$ANY_TAG" ]; then
+            echo "Found non-semantic tag: $ANY_TAG"
+            echo "This appears to be the first semantic release migration."
+            echo "baseline_tag=v0.0.0" >> $GITHUB_OUTPUT
+          else
+            echo "No tags found, starting from v0.0.0"
+            echo "baseline_tag=v0.0.0" >> $GITHUB_OUTPUT
           fi
         fi
 
-        if [ "$VERSION_TYPE" = "patch" ]; then
+    - name: Analyze commits for version bump
+      id: analyze_commits
+      run: |
+        BUMP="patch"  # default
+
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          if [ -n "${{ github.event.inputs.custom_version }}" ]; then
+            echo "version_bump=custom" >> $GITHUB_OUTPUT
+            echo "Using custom version from input"
+            exit 0
+          elif [ "${{ github.event.inputs.bump_type }}" != "auto" ]; then
+            BUMP="${{ github.event.inputs.bump_type }}"
+            echo "Using manual bump type: $BUMP"
+          fi
+        fi
+
+        if [ "$BUMP" = "patch" ]; then
           # Check commit messages since last tag for version bump indicators
-          LATEST_TAG="${{ steps.get_latest_tag.outputs.latest_tag }}"
-          COMMITS=$(git log ${LATEST_TAG}..HEAD --oneline --no-merges)
+          BASELINE="${{ steps.find_tag.outputs.baseline_tag }}"
+          COMMITS=$(git log ${BASELINE}..HEAD --oneline --no-merges 2>/dev/null || git log --oneline --no-merges)
 
           if echo "$COMMITS" | grep -qi "major update\|breaking change\|BREAKING CHANGE"; then
-            VERSION_TYPE="major"
+            BUMP="major"
             echo "🔥 Major update detected in commit messages"
           elif echo "$COMMITS" | grep -qi "minor update\|feat\|feature"; then
-            VERSION_TYPE="minor"
+            BUMP="minor"
             echo "✨ Minor update detected in commit messages"
           else
             echo "🐛 Patch update (default)"
           fi
         fi
 
-        echo "version_type=$VERSION_TYPE" >> $GITHUB_OUTPUT
-        echo "Final version type: $VERSION_TYPE"
+        echo "version_bump=$BUMP" >> $GITHUB_OUTPUT
+        echo "Final version bump: $BUMP"
 
-    - name: Calculate new version
-      id: calculate_version
+    - name: Compute next version
+      id: compute_version
       run: |
-        LATEST_TAG="${{ steps.get_latest_tag.outputs.latest_tag }}"
-        VERSION_TYPE="${{ steps.determine_version_type.outputs.version_type }}"
+        BASELINE="${{ steps.find_tag.outputs.baseline_tag }}"
+        BUMP="${{ steps.analyze_commits.outputs.version_bump }}"
 
-        if [ "$VERSION_TYPE" = "custom" ]; then
-          NEW_VERSION="${{ github.event.inputs.custom_version }}"
+        if [ "$BUMP" = "custom" ]; then
+          NEXT_VERSION="${{ github.event.inputs.custom_version }}"
           # Ensure it starts with 'v'
-          if [[ ! "$NEW_VERSION" =~ ^v ]]; then
-            NEW_VERSION="v$NEW_VERSION"
+          if [[ ! "$NEXT_VERSION" =~ ^v ]]; then
+            NEXT_VERSION="v$NEXT_VERSION"
           fi
         else
           # Remove 'v' prefix for calculation
-          CURRENT_VERSION=${LATEST_TAG#v}
+          CURRENT=${BASELINE#v}
 
           # Split version into parts
-          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
 
           # Bump version based on type
-          case $VERSION_TYPE in
+          case $BUMP in
             major)
               MAJOR=$((MAJOR + 1))
               MINOR=0
@@ -143,130 +155,126 @@ jobs:
               ;;
           esac
 
-          NEW_VERSION="v${MAJOR}.${MINOR}.${PATCH}"
+          NEXT_VERSION="v${MAJOR}.${MINOR}.${PATCH}"
         fi
 
-        echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
-        echo "🏷️ New version: $NEW_VERSION (was: $LATEST_TAG)"
+        echo "next_version=$NEXT_VERSION" >> $GITHUB_OUTPUT
+        echo "🏷️ Next version: $NEXT_VERSION (from: $BASELINE)"
 
-    - name: Generate release notes
-      id: release_notes
+    - name: Create release notes
+      id: create_notes
       run: |
-        LATEST_TAG="${{ steps.get_latest_tag.outputs.latest_tag }}"
-        NEW_VERSION="${{ steps.calculate_version.outputs.new_version }}"
+        BASELINE="${{ steps.find_tag.outputs.baseline_tag }}"
+        NEXT_VERSION="${{ steps.compute_version.outputs.next_version }}"
 
         # Determine commit range for release notes
-        if [ "$LATEST_TAG" = "v0.0.0" ]; then
+        if [ "$BASELINE" = "v0.0.0" ]; then
           # First semantic release - check if we have any existing tags
-          EXISTING_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          EXISTING=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
 
-          if [ -n "$EXISTING_TAG" ] && [[ ! "$EXISTING_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          if [ -n "$EXISTING" ] && [[ ! "$EXISTING" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             # We have non-semantic tags, get commits since the latest one
-            echo "📝 Generating release notes since last non-semantic tag: $EXISTING_TAG"
-            COMMITS=$(git log ${EXISTING_TAG}..HEAD --oneline --no-merges --reverse)
-            MIGRATION_NOTE="This is the first semantic version release, migrating from timestamp-based versioning."
+            echo "📝 Generating notes since last non-semantic tag: $EXISTING"
+            COMMITS=$(git log ${EXISTING}..HEAD --oneline --no-merges --reverse)
+            MIGRATION="This is the first semantic version release, migrating from timestamp-based versioning."
           else
             # No tags at all, get all commits
-            echo "📝 Generating release notes for initial release"
+            echo "📝 Generating notes for initial release"
             COMMITS=$(git log --oneline --no-merges --reverse)
-            MIGRATION_NOTE="Initial release of DtoForge with semantic versioning."
+            MIGRATION="Initial release of DtoForge with semantic versioning."
           fi
         else
           # Normal semantic version increment
-          echo "📝 Generating release notes since: $LATEST_TAG"
-          COMMITS=$(git log ${LATEST_TAG}..HEAD --oneline --no-merges --reverse)
-          MIGRATION_NOTE=""
+          echo "📝 Generating notes since: $BASELINE"
+          COMMITS=$(git log ${BASELINE}..HEAD --oneline --no-merges --reverse)
+          MIGRATION=""
         fi
 
-        # Create release notes
-        cat > release_notes.md << 'EOF'
-        ## 🚀 DtoForge ${{ steps.calculate_version.outputs.new_version }}
-        EOF
+        # Start building notes
+        {
+          echo "## 🚀 DtoForge $NEXT_VERSION"
 
-        # Add migration note if this is the first semantic release
-        if [ -n "$MIGRATION_NOTE" ]; then
-          cat >> release_notes.md << EOF
-
-        > **Note:** $MIGRATION_NOTE
-
-        EOF
-        fi
-
-        echo "" >> release_notes.md
-        echo "### What's New" >> release_notes.md
-
-        # Process commits into categorized changes
-        echo "$COMMITS" | while read -r commit; do
-          if echo "$commit" | grep -qi "feat\|feature\|add\|new"; then
-            echo "- ✨ ${commit#* }" >> release_notes.md
-          elif echo "$commit" | grep -qi "fix\|bug\|patch"; then
-            echo "- 🐛 ${commit#* }" >> release_notes.md
-          elif echo "$commit" | grep -qi "update\|improve\|enhance"; then
-            echo "- ⚡ ${commit#* }" >> release_notes.md
-          elif echo "$commit" | grep -qi "doc\|readme"; then
-            echo "- 📚 ${commit#* }" >> release_notes.md
-          elif echo "$commit" | grep -qi "test"; then
-            echo "- 🧪 ${commit#* }" >> release_notes.md
-          elif echo "$commit" | grep -qi "refactor\|clean"; then
-            echo "- ♻️ ${commit#* }" >> release_notes.md
-          else
-            echo "- 🔧 ${commit#* }" >> release_notes.md
+          # Add migration note if this is the first semantic release
+          if [ -n "$MIGRATION" ]; then
+            echo ""
+            echo "> **Note:** $MIGRATION"
+            echo ""
           fi
-        done
 
-        # Add installation and usage sections
-        cat >> release_notes.md << 'EOF'
+          echo ""
+          echo "### What's New"
 
-        ### 📥 Quick Install
+          # Process commits into categorized changes
+          echo "$COMMITS" | while read -r commit; do
+            if echo "$commit" | grep -qi "feat\|feature\|add\|new"; then
+              echo "- ✨ ${commit#* }"
+            elif echo "$commit" | grep -qi "fix\|bug\|patch"; then
+              echo "- 🐛 ${commit#* }"
+            elif echo "$commit" | grep -qi "update\|improve\|enhance"; then
+              echo "- ⚡ ${commit#* }"
+            elif echo "$commit" | grep -qi "doc\|readme"; then
+              echo "- 📚 ${commit#* }"
+            elif echo "$commit" | grep -qi "test"; then
+              echo "- 🧪 ${commit#* }"
+            elif echo "$commit" | grep -qi "refactor\|clean"; then
+              echo "- ♻️ ${commit#* }"
+            else
+              echo "- 🔧 ${commit#* }"
+            fi
+          done
 
-        **Linux/macOS:**
-        ```bash
-        # Download and install (replace with your platform)
-        curl -L https://github.com/eliraz-refael/dtoForge/releases/download/${{ steps.calculate_version.outputs.new_version }}/dtoforge-linux-amd64 -o dtoforge
-        chmod +x dtoforge
-        sudo mv dtoforge /usr/local/bin/
-        ```
+          echo ""
+          echo "### 📥 Quick Install"
+          echo ""
+          echo "**Linux/macOS:**"
+          echo '```bash'
+          echo "# Download and install (replace with your platform)"
+          echo "curl -L https://github.com/eliraz-refael/dtoForge/releases/download/$NEXT_VERSION/dtoforge-linux-amd64 -o dtoforge"
+          echo "chmod +x dtoforge"
+          echo "sudo mv dtoforge /usr/local/bin/"
+          echo '```'
+          echo ""
+          echo "**Windows:**"
+          echo "Download \`dtoforge-windows-amd64.exe\` and add to your PATH."
+          echo ""
+          echo "### 🎯 Quick Start"
+          echo '```bash'
+          echo "# Generate TypeScript schemas with io-ts"
+          echo "dtoforge -openapi api.yaml -out ./generated"
+          echo ""
+          echo "# Generate TypeScript schemas with Zod"
+          echo "dtoforge -openapi api.yaml -lang typescript-zod -out ./generated"
+          echo ""
+          echo "# Use config file defaults"
+          echo "dtoforge -openapi api.yaml -config myconfig.yaml"
+          echo ""
+          echo "# Generate without config file"
+          echo "dtoforge -openapi api.yaml --no-config"
+          echo '```'
+          echo ""
+          echo "### 🔧 Supported Platforms"
+          echo "- Linux (amd64, arm64)"
+          echo "- macOS (amd64, arm64)"
+          echo "- Windows (amd64, arm64)"
+          echo ""
+          echo "### 📝 Full Documentation"
+          echo "See the [README](https://github.com/eliraz-refael/dtoForge#readme) for complete usage instructions."
+          echo ""
+          echo "---"
+          echo "**Commit:** ${{ github.sha }}"
+        } > notes.md
 
-        **Windows:**
-        Download `dtoforge-windows-amd64.exe` and add to your PATH.
-
-        ### 🎯 Quick Start
-        ```bash
-        # Generate TypeScript schemas with io-ts
-        dtoforge -openapi api.yaml -out ./generated
-
-        # Generate TypeScript schemas with Zod
-        dtoforge -openapi api.yaml -lang typescript-zod -out ./generated
-
-        # Use config file defaults
-        dtoforge -openapi api.yaml -config myconfig.yaml
-
-        # Generate without config file
-        dtoforge -openapi api.yaml --no-config
-        ```
-
-        ### 🔧 Supported Platforms
-        - Linux (amd64, arm64)
-        - macOS (amd64, arm64)
-        - Windows (amd64, arm64)
-
-        ### 📝 Full Documentation
-        See the [README](https://github.com/eliraz-refael/dtoForge#readme) for complete usage instructions.
-
-        ---
-        **Commit:** ${{ github.sha }}
-        EOF
-
-        # Output the release notes for the GitHub release
-        echo "release_notes<<EOF" >> $GITHUB_OUTPUT
-        cat release_notes.md >> $GITHUB_OUTPUT
-        echo "EOF" >> $GITHUB_OUTPUT
+        # Output for GitHub release
+        {
+          echo "content<<NOTES_EOF"
+          cat notes.md
+          echo "NOTES_EOF"
+        } >> $GITHUB_OUTPUT
 
     - name: Build binaries
       run: |
         mkdir -p dist
 
-        # Define platforms
         platforms=(
           "linux/amd64"
           "linux/arm64"
@@ -279,7 +287,6 @@ jobs:
         for platform in "${platforms[@]}"; do
           IFS='/' read -r GOOS GOARCH <<< "$platform"
 
-          # Set binary name
           binary_name="dtoforge-${GOOS}-${GOARCH}"
           if [ "$GOOS" = "windows" ]; then
             binary_name="${binary_name}.exe"
@@ -287,23 +294,21 @@ jobs:
 
           echo "Building for $GOOS/$GOARCH..."
 
-          # Build with version info
           env GOOS="$GOOS" GOARCH="$GOARCH" CGO_ENABLED=0 \
-            go build -ldflags="-w -s -X main.Version=${{ steps.calculate_version.outputs.new_version }}" \
+            go build -ldflags="-w -s -X main.Version=${{ steps.compute_version.outputs.next_version }}" \
             -o "dist/$binary_name" .
 
-          # Create checksum
           cd dist
           sha256sum "$binary_name" > "$binary_name.sha256"
           cd ..
         done
 
-    - name: Create Release
+    - name: Publish release
       uses: softprops/action-gh-release@v1
       with:
-        tag_name: ${{ steps.calculate_version.outputs.new_version }}
-        name: DtoForge ${{ steps.calculate_version.outputs.new_version }}
-        body: ${{ steps.release_notes.outputs.release_notes }}
+        tag_name: ${{ steps.compute_version.outputs.next_version }}
+        name: DtoForge ${{ steps.compute_version.outputs.next_version }}
+        body: ${{ steps.create_notes.outputs.content }}
         files: |
           dist/*
         draft: false
@@ -311,467 +316,8 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Release Summary
+    - name: Summary
       run: |
-        echo "🎉 Successfully released DtoForge ${{ steps.calculate_version.outputs.new_version }}"
-        echo "📝 Release notes generated from commits since ${{ steps.get_latest_tag.outputs.latest_tag }}"
-        echo "🔗 Release URL: https://github.com/eliraz-refael/dtoForge/releases/tag/${{ steps.calculate_version.outputs.new_version }}" | sort -V | tail -1; then
-          LATEST_SEMANTIC_TAG=$(git tag -l | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+
-
-    - name: Determine version bump type
-      id: version_type
-      run: |
-        VERSION_TYPE="patch"  # default
-
-        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-          if [ -n "${{ github.event.inputs.custom_version }}" ]; then
-            echo "version_type=custom" >> $GITHUB_OUTPUT
-            echo "Using custom version from input"
-            exit 0
-          elif [ "${{ github.event.inputs.version_type }}" != "auto" ]; then
-            VERSION_TYPE="${{ github.event.inputs.version_type }}"
-            echo "Using manual version type: $VERSION_TYPE"
-          fi
-        fi
-
-        if [ "$VERSION_TYPE" = "patch" ]; then
-          # Check commit messages since last tag for version bump indicators
-          LATEST_TAG="${{ steps.get_latest_tag.outputs.latest_tag }}"
-          COMMITS=$(git log ${LATEST_TAG}..HEAD --oneline --no-merges)
-
-          if echo "$COMMITS" | grep -qi "major update\|breaking change\|BREAKING CHANGE"; then
-            VERSION_TYPE="major"
-            echo "🔥 Major update detected in commit messages"
-          elif echo "$COMMITS" | grep -qi "minor update\|feat\|feature"; then
-            VERSION_TYPE="minor"
-            echo "✨ Minor update detected in commit messages"
-          else
-            echo "🐛 Patch update (default)"
-          fi
-        fi
-
-        echo "version_type=$VERSION_TYPE" >> $GITHUB_OUTPUT
-        echo "Final version type: $VERSION_TYPE"
-
-    - name: Calculate new version
-      id: new_version
-      run: |
-        LATEST_TAG="${{ steps.get_latest_tag.outputs.latest_tag }}"
-        VERSION_TYPE="${{ steps.version_type.outputs.version_type }}"
-
-        if [ "$VERSION_TYPE" = "custom" ]; then
-          NEW_VERSION="${{ github.event.inputs.custom_version }}"
-          # Ensure it starts with 'v'
-          if [[ ! "$NEW_VERSION" =~ ^v ]]; then
-            NEW_VERSION="v$NEW_VERSION"
-          fi
-        else
-          # Remove 'v' prefix for calculation
-          CURRENT_VERSION=${LATEST_TAG#v}
-
-          # Split version into parts
-          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
-
-          # Bump version based on type
-          case $VERSION_TYPE in
-            major)
-              MAJOR=$((MAJOR + 1))
-              MINOR=0
-              PATCH=0
-              ;;
-            minor)
-              MINOR=$((MINOR + 1))
-              PATCH=0
-              ;;
-            patch)
-              PATCH=$((PATCH + 1))
-              ;;
-          esac
-
-          NEW_VERSION="v${MAJOR}.${MINOR}.${PATCH}"
-        fi
-
-        echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
-        echo "🏷️ New version: $NEW_VERSION (was: $LATEST_TAG)"
-
-    - name: Generate release notes
-      id: release_notes
-      run: |
-        LATEST_TAG="${{ steps.get_latest_tag.outputs.latest_tag }}"
-        NEW_VERSION="${{ steps.new_version.outputs.new_version }}"
-
-        # Get commits since last tag
-        if [ "$LATEST_TAG" = "v0.0.0" ]; then
-          # First release - get all commits
-          COMMITS=$(git log --oneline --no-merges --reverse)
-        else
-          # Get commits since last tag
-          COMMITS=$(git log ${LATEST_TAG}..HEAD --oneline --no-merges --reverse)
-        fi
-
-        # Create release notes
-        cat > release_notes.md << 'EOF'
-        ## 🚀 DtoForge ${{ steps.new_version.outputs.new_version }}
-
-        ### What's New
-        EOF
-
-        # Process commits into categorized changes
-        echo "$COMMITS" | while read -r commit; do
-          if echo "$commit" | grep -qi "feat\|feature\|add\|new"; then
-            echo "- ✨ ${commit#* }" >> release_notes.md
-          elif echo "$commit" | grep -qi "fix\|bug\|patch"; then
-            echo "- 🐛 ${commit#* }" >> release_notes.md
-          elif echo "$commit" | grep -qi "update\|improve\|enhance"; then
-            echo "- ⚡ ${commit#* }" >> release_notes.md
-          elif echo "$commit" | grep -qi "doc\|readme"; then
-            echo "- 📚 ${commit#* }" >> release_notes.md
-          elif echo "$commit" | grep -qi "test"; then
-            echo "- 🧪 ${commit#* }" >> release_notes.md
-          elif echo "$commit" | grep -qi "refactor\|clean"; then
-            echo "- ♻️ ${commit#* }" >> release_notes.md
-          else
-            echo "- 🔧 ${commit#* }" >> release_notes.md
-          fi
-        done
-
-        # Add installation and usage sections
-        cat >> release_notes.md << 'EOF'
-
-        ### 📥 Quick Install
-
-        **Linux/macOS:**
-        ```bash
-        # Download and install (replace with your platform)
-        curl -L https://github.com/eliraz-refael/dtoForge/releases/download/${{ steps.new_version.outputs.new_version }}/dtoforge-linux-amd64 -o dtoforge
-        chmod +x dtoforge
-        sudo mv dtoforge /usr/local/bin/
-        ```
-
-        **Windows:**
-        Download `dtoforge-windows-amd64.exe` and add to your PATH.
-
-        ### 🎯 Quick Start
-        ```bash
-        # Generate TypeScript schemas with io-ts
-        dtoforge -openapi api.yaml -out ./generated
-
-        # Generate TypeScript schemas with Zod
-        dtoforge -openapi api.yaml -lang typescript-zod -out ./generated
-
-        # Use config file defaults
-        dtoforge -openapi api.yaml -config myconfig.yaml
-
-        # Generate without config file
-        dtoforge -openapi api.yaml --no-config
-        ```
-
-        ### 🔧 Supported Platforms
-        - Linux (amd64, arm64)
-        - macOS (amd64, arm64)
-        - Windows (amd64, arm64)
-
-        ### 📝 Full Documentation
-        See the [README](https://github.com/eliraz-refael/dtoForge#readme) for complete usage instructions.
-
-        ---
-        **Commit:** ${{ github.sha }}
-        EOF
-
-        # Output the release notes for the GitHub release
-        echo "release_notes<<EOF" >> $GITHUB_OUTPUT
-        cat release_notes.md >> $GITHUB_OUTPUT
-        echo "EOF" >> $GITHUB_OUTPUT
-
-    - name: Build binaries
-      run: |
-        mkdir -p dist
-
-        # Define platforms
-        platforms=(
-          "linux/amd64"
-          "linux/arm64"
-          "darwin/amd64"
-          "darwin/arm64"
-          "windows/amd64"
-          "windows/arm64"
-        )
-
-        for platform in "${platforms[@]}"; do
-          IFS='/' read -r GOOS GOARCH <<< "$platform"
-
-          # Set binary name
-          binary_name="dtoforge-${GOOS}-${GOARCH}"
-          if [ "$GOOS" = "windows" ]; then
-            binary_name="${binary_name}.exe"
-          fi
-
-          echo "Building for $GOOS/$GOARCH..."
-
-          # Build with version info
-          env GOOS="$GOOS" GOARCH="$GOARCH" CGO_ENABLED=0 \
-            go build -ldflags="-w -s -X main.Version=${{ steps.new_version.outputs.new_version }}" \
-            -o "dist/$binary_name" .
-
-          # Create checksum
-          cd dist
-          sha256sum "$binary_name" > "$binary_name.sha256"
-          cd ..
-        done
-
-    - name: Create Release
-      uses: softprops/action-gh-release@v1
-      with:
-        tag_name: ${{ steps.new_version.outputs.new_version }}
-        name: DtoForge ${{ steps.new_version.outputs.new_version }}
-        body: ${{ steps.release_notes.outputs.release_notes }}
-        files: |
-          dist/*
-        draft: false
-        prerelease: false
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: Release Summary
-      run: |
-        echo "🎉 Successfully released DtoForge ${{ steps.new_version.outputs.new_version }}"
-        echo "📝 Release notes generated from commits since ${{ steps.get_latest_tag.outputs.latest_tag }}"
-        echo "🔗 Release URL: https://github.com/eliraz-refael/dtoForge/releases/tag/${{ steps.new_version.outputs.new_version }}" | sort -V | tail -1)
-          echo "Found existing semantic tag: $LATEST_SEMANTIC_TAG"
-        else
-          # No semantic tags found, check if we have any tags at all
-          LATEST_ANY_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
-
-          if [ -n "$LATEST_ANY_TAG" ]; then
-            echo "Found non-semantic tag: $LATEST_ANY_TAG"
-            echo "This appears to be the first semantic release migration."
-            echo "Starting semantic versioning from v1.0.0"
-            LATEST_SEMANTIC_TAG="v0.0.0"  # Will be bumped to v1.0.0
-          else
-            echo "No tags found, starting from v0.0.0"
-            LATEST_SEMANTIC_TAG="v0.0.0"
-          fi
-        fi
-
-        echo "latest_tag=$LATEST_SEMANTIC_TAG" >> $GITHUB_OUTPUT
-        echo "Using baseline: $LATEST_SEMANTIC_TAG"
-
-    - name: Determine version bump type
-      id: version_type
-      run: |
-        VERSION_TYPE="patch"  # default
-
-        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-          if [ -n "${{ github.event.inputs.custom_version }}" ]; then
-            echo "version_type=custom" >> $GITHUB_OUTPUT
-            echo "Using custom version from input"
-            exit 0
-          elif [ "${{ github.event.inputs.version_type }}" != "auto" ]; then
-            VERSION_TYPE="${{ github.event.inputs.version_type }}"
-            echo "Using manual version type: $VERSION_TYPE"
-          fi
-        fi
-
-        if [ "$VERSION_TYPE" = "patch" ]; then
-          # Check commit messages since last tag for version bump indicators
-          LATEST_TAG="${{ steps.get_latest_tag.outputs.latest_tag }}"
-          COMMITS=$(git log ${LATEST_TAG}..HEAD --oneline --no-merges)
-
-          if echo "$COMMITS" | grep -qi "major update\|breaking change\|BREAKING CHANGE"; then
-            VERSION_TYPE="major"
-            echo "🔥 Major update detected in commit messages"
-          elif echo "$COMMITS" | grep -qi "minor update\|feat\|feature"; then
-            VERSION_TYPE="minor"
-            echo "✨ Minor update detected in commit messages"
-          else
-            echo "🐛 Patch update (default)"
-          fi
-        fi
-
-        echo "version_type=$VERSION_TYPE" >> $GITHUB_OUTPUT
-        echo "Final version type: $VERSION_TYPE"
-
-    - name: Calculate new version
-      id: new_version
-      run: |
-        LATEST_TAG="${{ steps.get_latest_tag.outputs.latest_tag }}"
-        VERSION_TYPE="${{ steps.version_type.outputs.version_type }}"
-
-        if [ "$VERSION_TYPE" = "custom" ]; then
-          NEW_VERSION="${{ github.event.inputs.custom_version }}"
-          # Ensure it starts with 'v'
-          if [[ ! "$NEW_VERSION" =~ ^v ]]; then
-            NEW_VERSION="v$NEW_VERSION"
-          fi
-        else
-          # Remove 'v' prefix for calculation
-          CURRENT_VERSION=${LATEST_TAG#v}
-
-          # Split version into parts
-          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
-
-          # Bump version based on type
-          case $VERSION_TYPE in
-            major)
-              MAJOR=$((MAJOR + 1))
-              MINOR=0
-              PATCH=0
-              ;;
-            minor)
-              MINOR=$((MINOR + 1))
-              PATCH=0
-              ;;
-            patch)
-              PATCH=$((PATCH + 1))
-              ;;
-          esac
-
-          NEW_VERSION="v${MAJOR}.${MINOR}.${PATCH}"
-        fi
-
-        echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
-        echo "🏷️ New version: $NEW_VERSION (was: $LATEST_TAG)"
-
-    - name: Generate release notes
-      id: release_notes
-      run: |
-        LATEST_TAG="${{ steps.get_latest_tag.outputs.latest_tag }}"
-        NEW_VERSION="${{ steps.new_version.outputs.new_version }}"
-
-        # Get commits since last tag
-        if [ "$LATEST_TAG" = "v0.0.0" ]; then
-          # First release - get all commits
-          COMMITS=$(git log --oneline --no-merges --reverse)
-        else
-          # Get commits since last tag
-          COMMITS=$(git log ${LATEST_TAG}..HEAD --oneline --no-merges --reverse)
-        fi
-
-        # Create release notes
-        cat > release_notes.md << 'EOF'
-        ## 🚀 DtoForge ${{ steps.new_version.outputs.new_version }}
-
-        ### What's New
-        EOF
-
-        # Process commits into categorized changes
-        echo "$COMMITS" | while read -r commit; do
-          if echo "$commit" | grep -qi "feat\|feature\|add\|new"; then
-            echo "- ✨ ${commit#* }" >> release_notes.md
-          elif echo "$commit" | grep -qi "fix\|bug\|patch"; then
-            echo "- 🐛 ${commit#* }" >> release_notes.md
-          elif echo "$commit" | grep -qi "update\|improve\|enhance"; then
-            echo "- ⚡ ${commit#* }" >> release_notes.md
-          elif echo "$commit" | grep -qi "doc\|readme"; then
-            echo "- 📚 ${commit#* }" >> release_notes.md
-          elif echo "$commit" | grep -qi "test"; then
-            echo "- 🧪 ${commit#* }" >> release_notes.md
-          elif echo "$commit" | grep -qi "refactor\|clean"; then
-            echo "- ♻️ ${commit#* }" >> release_notes.md
-          else
-            echo "- 🔧 ${commit#* }" >> release_notes.md
-          fi
-        done
-
-        # Add installation and usage sections
-        cat >> release_notes.md << 'EOF'
-
-        ### 📥 Quick Install
-
-        **Linux/macOS:**
-        ```bash
-        # Download and install (replace with your platform)
-        curl -L https://github.com/eliraz-refael/dtoForge/releases/download/${{ steps.new_version.outputs.new_version }}/dtoforge-linux-amd64 -o dtoforge
-        chmod +x dtoforge
-        sudo mv dtoforge /usr/local/bin/
-        ```
-
-        **Windows:**
-        Download `dtoforge-windows-amd64.exe` and add to your PATH.
-
-        ### 🎯 Quick Start
-        ```bash
-        # Generate TypeScript schemas with io-ts
-        dtoforge -openapi api.yaml -out ./generated
-
-        # Generate TypeScript schemas with Zod
-        dtoforge -openapi api.yaml -lang typescript-zod -out ./generated
-
-        # Use config file defaults
-        dtoforge -openapi api.yaml -config myconfig.yaml
-
-        # Generate without config file
-        dtoforge -openapi api.yaml --no-config
-        ```
-
-        ### 🔧 Supported Platforms
-        - Linux (amd64, arm64)
-        - macOS (amd64, arm64)
-        - Windows (amd64, arm64)
-
-        ### 📝 Full Documentation
-        See the [README](https://github.com/eliraz-refael/dtoForge#readme) for complete usage instructions.
-
-        ---
-        **Commit:** ${{ github.sha }}
-        EOF
-
-        # Output the release notes for the GitHub release
-        echo "release_notes<<EOF" >> $GITHUB_OUTPUT
-        cat release_notes.md >> $GITHUB_OUTPUT
-        echo "EOF" >> $GITHUB_OUTPUT
-
-    - name: Build binaries
-      run: |
-        mkdir -p dist
-
-        # Define platforms
-        platforms=(
-          "linux/amd64"
-          "linux/arm64"
-          "darwin/amd64"
-          "darwin/arm64"
-          "windows/amd64"
-          "windows/arm64"
-        )
-
-        for platform in "${platforms[@]}"; do
-          IFS='/' read -r GOOS GOARCH <<< "$platform"
-
-          # Set binary name
-          binary_name="dtoforge-${GOOS}-${GOARCH}"
-          if [ "$GOOS" = "windows" ]; then
-            binary_name="${binary_name}.exe"
-          fi
-
-          echo "Building for $GOOS/$GOARCH..."
-
-          # Build with version info
-          env GOOS="$GOOS" GOARCH="$GOARCH" CGO_ENABLED=0 \
-            go build -ldflags="-w -s -X main.Version=${{ steps.new_version.outputs.new_version }}" \
-            -o "dist/$binary_name" .
-
-          # Create checksum
-          cd dist
-          sha256sum "$binary_name" > "$binary_name.sha256"
-          cd ..
-        done
-
-    - name: Create Release
-      uses: softprops/action-gh-release@v1
-      with:
-        tag_name: ${{ steps.new_version.outputs.new_version }}
-        name: DtoForge ${{ steps.new_version.outputs.new_version }}
-        body: ${{ steps.release_notes.outputs.release_notes }}
-        files: |
-          dist/*
-        draft: false
-        prerelease: false
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: Release Summary
-      run: |
-        echo "🎉 Successfully released DtoForge ${{ steps.new_version.outputs.new_version }}"
-        echo "📝 Release notes generated from commits since ${{ steps.get_latest_tag.outputs.latest_tag }}"
-        echo "🔗 Release URL: https://github.com/eliraz-refael/dtoForge/releases/tag/${{ steps.new_version.outputs.new_version }}"
+        echo "🎉 Successfully released DtoForge ${{ steps.compute_version.outputs.next_version }}"
+        echo "📝 Release notes generated from commits since ${{ steps.find_tag.outputs.baseline_tag }}"
+        echo "🔗 Release URL: https://github.com/eliraz-refael/dtoForge/releases/tag/${{ steps.compute_version.outputs.next_version }}"
