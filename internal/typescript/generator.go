@@ -78,7 +78,7 @@ func (g *TypeScriptGenerator) Generate(dtos []generator.DTO, config generator.Co
 	return nil
 }
 
-// generateSingleFile creates a single TypeScript file with all DTOs
+// Clean generateSingleFile method that uses the template constant
 func (g *TypeScriptGenerator) generateSingleFile(dtos []generator.DTO, config generator.Config, genConfig GenerationConfig) error {
 	filename := g.customTypes.GetSingleFileName()
 	filepath := filepath.Join(config.OutputFolder, filename)
@@ -91,7 +91,7 @@ func (g *TypeScriptGenerator) generateSingleFile(dtos []generator.DTO, config ge
 
 	tmpl, err := template.New("single-file").Funcs(g.templateFuncs()).Parse(singleFileTemplate)
 	if err != nil {
-		return err
+		return fmt.Errorf("template parse error: %w", err)
 	}
 
 	// Calculate all imports needed for all DTOs
@@ -130,7 +130,12 @@ func (g *TypeScriptGenerator) generateSingleFile(dtos []generator.DTO, config ge
 		GenerateHelpers:       genConfig.GenerateHelpers,
 	}
 
-	return tmpl.Execute(file, data)
+	err = tmpl.Execute(file, data)
+	if err != nil {
+		return fmt.Errorf("template execute error: %w", err)
+	}
+
+	return nil
 }
 
 func (g *TypeScriptGenerator) generateDTOFile(dto generator.DTO, config generator.Config, genConfig GenerationConfig) error {
