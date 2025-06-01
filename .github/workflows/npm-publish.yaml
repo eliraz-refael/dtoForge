@@ -3,6 +3,16 @@ name: Publish to NPM
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (e.g., 1.1.0)'
+        required: true
+        type: string
+      release_tag:
+        description: 'GitHub release tag (e.g., v1.1.0)'
+        required: true
+        type: string
 
 jobs:
   publish-platform-packages:
@@ -31,9 +41,19 @@ jobs:
     - name: Get release version
       id: get_version
       run: |
-        # Remove 'v' prefix from tag name
-        VERSION=${GITHUB_REF#refs/tags/v}
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          # Manual trigger - use input version
+          VERSION="${{ github.event.inputs.version }}"
+          RELEASE_TAG="${{ github.event.inputs.release_tag }}"
+        else
+          # Release trigger - extract from tag
+          VERSION=${GITHUB_REF#refs/tags/v}
+          RELEASE_TAG=${GITHUB_REF#refs/tags/}
+        fi
+
         echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "release_tag=$RELEASE_TAG" >> $GITHUB_OUTPUT
+        echo "Publishing version: $VERSION from release: $RELEASE_TAG"
 
     - name: Download release binary
       run: |
@@ -42,7 +62,7 @@ jobs:
 
         # Download the binary for this platform from GitHub releases
         curl -L -o binary.tmp \
-          "https://github.com/eliraz-refael/dtoForge/releases/download/${{ github.ref_name }}/${{ matrix.platform.binary }}"
+          "https://github.com/eliraz-refael/dtoForge/releases/download/${{ steps.get_version.outputs.release_tag }}/${{ matrix.platform.binary }}"
 
         # Rename to the correct camelCase name that our install.js expects
         if [[ "${{ matrix.platform.name }}" == *"win32"* ]]; then
@@ -105,8 +125,19 @@ jobs:
     - name: Get release version
       id: get_version
       run: |
-        VERSION=${GITHUB_REF#refs/tags/v}
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          # Manual trigger - use input version
+          VERSION="${{ github.event.inputs.version }}"
+          RELEASE_TAG="${{ github.event.inputs.release_tag }}"
+        else
+          # Release trigger - extract from tag
+          VERSION=${GITHUB_REF#refs/tags/v}
+          RELEASE_TAG=${GITHUB_REF#refs/tags/}
+        fi
+
         echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "release_tag=$RELEASE_TAG" >> $GITHUB_OUTPUT
+        echo "Publishing version: $VERSION from release: $RELEASE_TAG"
 
     - name: Create npm package structure
       run: |
