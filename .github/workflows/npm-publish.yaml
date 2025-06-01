@@ -1,8 +1,10 @@
 name: Publish to NPM
 
 on:
-  release:
-    types: [published]
+  workflow_run:
+    workflows: ["Release"]
+    types: [completed]
+    branches: [main, master]
   workflow_dispatch:
     inputs:
       version:
@@ -15,9 +17,40 @@ on:
         type: string
 
 jobs:
+  environment: production
+  # Only run if the release workflow was successful
+  check-release-success:
+    if: github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    outputs:
+      should-run: ${{ steps.check.outputs.should-run }}
+      version: ${{ steps.extract-version.outputs.version }}
+      release-tag: ${{ steps.extract-version.outputs.release-tag }}
+    steps:
+    - name: Check if should run
+      id: check
+      run: |
+        echo "should-run=true" >> $GITHUB_OUTPUT
+
+    - name: Extract version from release
+      id: extract-version
+      run: |
+        # Get the latest release
+        RELEASE_TAG=$(curl -s "https://api.github.com/repos/${{ github.repository }}/releases/latest" | jq -r '.tag_name')
+        VERSION=${RELEASE_TAG#v}
+
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "release-tag=$RELEASE_TAG" >> $GITHUB_OUTPUT
+        echo "Detected release: $RELEASE_TAG, version: $VERSION"
   publish-platform-packages:
     name: Publish Platform-Specific Packages
     runs-on: ubuntu-latest
+    # Run if manual trigger OR if release workflow succeeded
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' && needs.check-release-success.outputs.should-run == 'true')
+    needs: [check-release-success]
+    environment: npm-publishing  # This links to your GitHub environment
     strategy:
       matrix:
         platform:
@@ -46,9 +79,9 @@ jobs:
           VERSION="${{ github.event.inputs.version }}"
           RELEASE_TAG="${{ github.event.inputs.release_tag }}"
         else
-          # Release trigger - extract from tag
-          VERSION=${GITHUB_REF#refs/tags/v}
-          RELEASE_TAG=${GITHUB_REF#refs/tags/}
+          # Automatic trigger - use values from check-release-success job
+          VERSION="${{ needs.check-release-success.outputs.version }}"
+          RELEASE_TAG="${{ needs.check-release-success.outputs.release-tag }}"
         fi
 
         echo "version=$VERSION" >> $GITHUB_OUTPUT
@@ -110,7 +143,11 @@ jobs:
   publish-main-package:
     name: Publish Main Package
     runs-on: ubuntu-latest
-    needs: publish-platform-packages
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' && needs.check-release-success.outputs.should-run == 'true')
+    needs: [check-release-success, publish-platform-packages]
+    environment: npm-publishing  # This links to your GitHub environment
 
     steps:
     - name: Checkout code
