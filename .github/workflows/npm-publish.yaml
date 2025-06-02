@@ -17,7 +17,6 @@ on:
         type: string
 
 jobs:
-  environment: 'production'
   # Only run if the release workflow was successful
   check-release-success:
     if: github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success'
@@ -50,7 +49,7 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'workflow_run' && needs.check-release-success.outputs.should-run == 'true')
     needs: [check-release-success]
-    environment: npm-publishing  # This links to your GitHub environment
+    environment: production
     strategy:
       matrix:
         platform:
@@ -147,7 +146,7 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'workflow_run' && needs.check-release-success.outputs.should-run == 'true')
     needs: [check-release-success, publish-platform-packages]
-    environment: npm-publishing  # This links to your GitHub environment
+    environment: production
 
     steps:
     - name: Checkout code
