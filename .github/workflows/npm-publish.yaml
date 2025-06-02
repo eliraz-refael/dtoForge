@@ -17,7 +17,7 @@ on:
         type: string
 
 jobs:
-  environment: production
+  environment: 'production'
   # Only run if the release workflow was successful
   check-release-success:
     if: github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success'
