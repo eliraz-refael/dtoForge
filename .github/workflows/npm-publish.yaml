@@ -17,48 +17,13 @@ on:
         type: string
 
 jobs:
-  # Only run if the release workflow was successful
-  check-release-success:
-    if: github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success'
+  publish-single-package:
+    name: Publish Single DtoForge Package
     runs-on: ubuntu-latest
-    outputs:
-      should-run: ${{ steps.check.outputs.should-run }}
-      version: ${{ steps.extract-version.outputs.version }}
-      release-tag: ${{ steps.extract-version.outputs.release-tag }}
-    steps:
-    - name: Check if should run
-      id: check
-      run: |
-        echo "should-run=true" >> $GITHUB_OUTPUT
-
-    - name: Extract version from release
-      id: extract-version
-      run: |
-        # Get the latest release
-        RELEASE_TAG=$(curl -s "https://api.github.com/repos/${{ github.repository }}/releases/latest" | jq -r '.tag_name')
-        VERSION=${RELEASE_TAG#v}
-
-        echo "version=$VERSION" >> $GITHUB_OUTPUT
-        echo "release-tag=$RELEASE_TAG" >> $GITHUB_OUTPUT
-        echo "Detected release: $RELEASE_TAG, version: $VERSION"
-  publish-platform-packages:
-    name: Publish Platform-Specific Packages
-    runs-on: ubuntu-latest
-    # Run if manual trigger OR if release workflow succeeded
+    environment: production
     if: |
       github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'workflow_run' && needs.check-release-success.outputs.should-run == 'true')
-    needs: [check-release-success]
-    environment: production
-    strategy:
-      matrix:
-        platform:
-          - { name: "darwin-x64", binary: "dtoForge-darwin-amd64" }
-          - { name: "darwin-arm64", binary: "dtoForge-darwin-arm64" }
-          - { name: "linux-x64", binary: "dtoForge-linux-amd64" }
-          - { name: "linux-arm64", binary: "dtoForge-linux-arm64" }
-          - { name: "win32-x64", binary: "dtoForge-windows-amd64.exe" }
-          - { name: "win32-arm64", binary: "dtoForge-windows-arm64.exe" }
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
 
     steps:
     - name: Checkout code
@@ -74,134 +39,62 @@ jobs:
       id: get_version
       run: |
         if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-          # Manual trigger - use input version
           VERSION="${{ github.event.inputs.version }}"
           RELEASE_TAG="${{ github.event.inputs.release_tag }}"
         else
-          # Automatic trigger - use values from check-release-success job
-          VERSION="${{ needs.check-release-success.outputs.version }}"
-          RELEASE_TAG="${{ needs.check-release-success.outputs.release-tag }}"
+          # Get the latest release
+          RELEASE_TAG=$(curl -s "https://api.github.com/repos/${{ github.repository }}/releases/latest" | jq -r '.tag_name')
+          VERSION=${RELEASE_TAG#v}
         fi
 
         echo "version=$VERSION" >> $GITHUB_OUTPUT
         echo "release_tag=$RELEASE_TAG" >> $GITHUB_OUTPUT
         echo "Publishing version: $VERSION from release: $RELEASE_TAG"
 
-    - name: Download release binary
+    - name: Download all platform binaries
       run: |
-        mkdir -p npm-packages/${{ matrix.platform.name }}
-        cd npm-packages/${{ matrix.platform.name }}
+        mkdir -p npm-package/binaries
+        cd npm-package/binaries
 
-        # Download the binary for this platform from GitHub releases
-        curl -L -o binary.tmp \
-          "https://github.com/eliraz-refael/dtoForge/releases/download/${{ steps.get_version.outputs.release_tag }}/${{ matrix.platform.binary }}"
+        # Download all platform binaries
+        platforms=(
+          "dtoForge-linux-amd64:linux-x64"
+          "dtoForge-linux-arm64:linux-arm64"
+          "dtoForge-darwin-amd64:darwin-x64"
+          "dtoForge-darwin-arm64:darwin-arm64"
+          "dtoForge-windows-amd64.exe:win32-x64.exe"
+          "dtoForge-windows-arm64.exe:win32-arm64.exe"
+        )
 
-        # Rename to the correct camelCase name that our install.js expects
-        if [[ "${{ matrix.platform.name }}" == *"win32"* ]]; then
-          mv binary.tmp dtoForge.exe
-        else
-          mv binary.tmp dtoForge
-          chmod +x dtoForge
-        fi
+        for platform in "${platforms[@]}"; do
+          IFS=':' read -r github_name npm_name <<< "$platform"
+          echo "Downloading $github_name as $npm_name..."
 
-    - name: Create platform package.json
+          curl -L -o "$npm_name" \
+            "https://github.com/eliraz-refael/dtoForge/releases/download/${{ steps.get_version.outputs.release_tag }}/$github_name"
+
+          # Make executable if not Windows
+          if [[ "$npm_name" != *.exe ]]; then
+            chmod +x "$npm_name"
+          fi
+        done
+
+        ls -la
+
+    - name: Copy npm files from repo
       run: |
-        cd npm-packages/${{ matrix.platform.name }}
+        cd npm-package
 
-        # Extract OS and CPU for package.json
-        IFS='-' read -r os cpu <<< "${{ matrix.platform.name }}"
-
-        cat > package.json << EOF
-        {
-          "name": "dtoforge-${{ matrix.platform.name }}",
-          "version": "${{ steps.get_version.outputs.version }}",
-          "description": "DtoForge binary for ${{ matrix.platform.name }}",
-          "main": "dtoForge$([[ "${{ matrix.platform.name }}" == *"win32"* ]] && echo ".exe" || echo "")",
-          "files": [
-            "dtoForge$([[ "${{ matrix.platform.name }}" == *"win32"* ]] && echo ".exe" || echo "")"
-          ],
-          "keywords": ["dtoforge", "binary", "$os"],
-          "author": "Eliraz Kedmi",
-          "license": "MIT",
-          "repository": {
-            "type": "git",
-            "url": "https://github.com/eliraz-refael/dtoForge.git"
-          },
-          "os": ["$os"],
-          "cpu": ["$([[ "$cpu" == "amd64" ]] && echo "x64" || echo "$cpu")"]
-        }
-        EOF
-
-    - name: Publish platform package
-      run: |
-        cd npm-packages/${{ matrix.platform.name }}
-        npm publish --access public
-      env:
-        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-  publish-main-package:
-    name: Publish Main Package
-    runs-on: ubuntu-latest
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'workflow_run' && needs.check-release-success.outputs.should-run == 'true')
-    needs: [check-release-success, publish-platform-packages]
-    environment: production
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '18'
-        registry-url: 'https://registry.npmjs.org'
-
-    - name: Get release version
-      id: get_version
-      run: |
-        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-          # Manual trigger - use input version
-          VERSION="${{ github.event.inputs.version }}"
-          RELEASE_TAG="${{ github.event.inputs.release_tag }}"
-        else
-          # Release trigger - extract from tag
-          VERSION=${GITHUB_REF#refs/tags/v}
-          RELEASE_TAG=${GITHUB_REF#refs/tags/}
-        fi
-
-        echo "version=$VERSION" >> $GITHUB_OUTPUT
-        echo "release_tag=$RELEASE_TAG" >> $GITHUB_OUTPUT
-        echo "Publishing version: $VERSION from release: $RELEASE_TAG"
-
-    - name: Create npm package structure
-      run: |
-        mkdir -p npm-main
-        cd npm-main
-
-        # Copy install script from repo
+        # Copy the install script we already created
         cp ../scripts/npm/install.js .
 
         # Create package.json from template with version substitution
-        envsubst < ../scripts/npm/package.json.template > package.json
-
-    - name: Create install script
-      run: |
-        cd npm-main
-        # Copy the install.js script we created earlier
-        # You'll need to create this file in your repo at scripts/npm/install.js
-
-    - name: Publish main package
-      run: |
-        cd npm-main
-
-        # Set the VERSION environment variable for envsubst
         export VERSION="${{ steps.get_version.outputs.version }}"
-
-        # Use envsubst to substitute VERSION in the template
         envsubst < ../scripts/npm/package.json.template > package.json
 
+    - name: Publish to npm
+      run: |
+        cd npm-package
         npm publish --access public
       env:
         NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -209,5 +102,6 @@ jobs:
     - name: Summary
       run: |
         echo "🎉 Successfully published DtoForge v${{ steps.get_version.outputs.version }} to npm!"
-        echo "📦 Main package: https://www.npmjs.com/package/dtoforge"
-        echo "💾 Install with: npm install -g dtoforge"
+        echo "📦 Package: https://www.npmjs.com/package/dtoforge"
+        echo "💾 Install: npm install -g dtoforge"
+        echo "🚀 Usage: dtoforge -openapi api.yaml -out ./generated"
