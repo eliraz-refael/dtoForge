@@ -9,6 +9,7 @@
     "postinstall": "node install.js"
   },
   "files": [
+    "README.md",
     "install.js",
     "bin/",
     "binaries/"

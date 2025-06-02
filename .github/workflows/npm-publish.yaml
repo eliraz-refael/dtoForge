@@ -88,6 +88,9 @@ jobs:
         # Copy the install script we already created
         cp ../scripts/npm/install.js .
 
+        # Copy the npm-specific README
+        cp ../README.md .
+
         # Create package.json from template with version substitution
         export VERSION="${{ steps.get_version.outputs.version }}"
         envsubst < ../scripts/npm/package.json.template > package.json
