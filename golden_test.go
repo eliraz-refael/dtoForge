@@ -22,6 +22,7 @@ func TestGoldenFiles(t *testing.T) {
 		{
 			name:        "basic-schemas",
 			openAPIFile: "testdata/basic-api.yaml",
+			configFile:  "testdata/basic-test.config.yaml",
 			goldenDir:   "testdata/golden/basic-schemas",
 		},
 		{
@@ -262,7 +263,14 @@ func TestGoldenFilesWithUpdate(t *testing.T) {
 		{
 			name:        "basic-schemas",
 			openAPIFile: "testdata/basic-api.yaml",
+			configFile:  "testdata/basic-test.config.yaml",
 			goldenDir:   "testdata/golden/basic-schemas",
+		},
+		{
+			name:        "custom-formats",
+			openAPIFile: "testdata/formats-api.yaml",
+			configFile:  "testdata/custom-formats.config.yaml",
+			goldenDir:   "testdata/golden/custom-formats",
 		},
 	}
 

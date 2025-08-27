@@ -1,0 +1,6 @@
+generation:
+  generatePackageJson: true
+  generatePartialCodecs: true
+  generateHelpers: true
+  generateSchemaRegistry: true
+  generateSchemaNames: true

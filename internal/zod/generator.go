@@ -126,17 +126,21 @@ func (g *ZodGenerator) generateSingleFile(dtos []generator.DTO, config generator
 	}
 
 	data := struct {
-		DTOs            []generator.DTO
-		Config          generator.Config
-		Imports         []string
-		PackageName     string
-		GenerateHelpers bool
+		DTOs                   []generator.DTO
+		Config                 generator.Config
+		Imports                []string
+		PackageName            string
+		GenerateHelpers        bool
+		GenerateSchemaRegistry bool
+		GenerateSchemaNames    bool
 	}{
-		DTOs:            dtos,
-		Config:          config,
-		Imports:         []string{}, // Not using for now since we have import in template
-		PackageName:     g.getPackageName(config),
-		GenerateHelpers: genConfig.GenerateHelpers,
+		DTOs:                   dtos,
+		Config:                 config,
+		Imports:                []string{}, // Not using for now since we have import in template
+		PackageName:            g.getPackageName(config),
+		GenerateHelpers:        genConfig.GenerateHelpers,
+		GenerateSchemaRegistry: genConfig.GenerateSchemaRegistry,
+		GenerateSchemaNames:    genConfig.GenerateSchemaNames,
 	}
 
 	err = tmpl.Execute(file, data)
@@ -163,15 +167,19 @@ func (g *ZodGenerator) generateIndexFile(dtos []generator.DTO, config generator.
 	}
 
 	data := struct {
-		DTOs            []generator.DTO
-		Config          generator.Config
-		PackageName     string
-		GenerateHelpers bool
+		DTOs                   []generator.DTO
+		Config                 generator.Config
+		PackageName            string
+		GenerateHelpers        bool
+		GenerateSchemaRegistry bool
+		GenerateSchemaNames    bool
 	}{
-		DTOs:            dtos,
-		Config:          config,
-		PackageName:     g.getPackageName(config),
-		GenerateHelpers: genConfig.GenerateHelpers,
+		DTOs:                   dtos,
+		Config:                 config,
+		PackageName:            g.getPackageName(config),
+		GenerateHelpers:        genConfig.GenerateHelpers,
+		GenerateSchemaRegistry: genConfig.GenerateSchemaRegistry,
+		GenerateSchemaNames:    genConfig.GenerateSchemaNames,
 	}
 
 	return tmpl.Execute(file, data)

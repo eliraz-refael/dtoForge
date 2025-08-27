@@ -17,9 +17,11 @@ type OutputConfig struct {
 
 // GenerationConfig defines what to generate
 type GenerationConfig struct {
-	GeneratePackageJson   bool `yaml:"generatePackageJson"`
-	GeneratePartialCodecs bool `yaml:"generatePartialCodecs"`
-	GenerateHelpers       bool `yaml:"generateHelpers"`
+	GeneratePackageJson    bool `yaml:"generatePackageJson"`
+	GeneratePartialCodecs  bool `yaml:"generatePartialCodecs"`
+	GenerateHelpers        bool `yaml:"generateHelpers"`
+	GenerateSchemaRegistry bool `yaml:"generateSchemaRegistry"`
+	GenerateSchemaNames    bool `yaml:"generateSchemaNames"`
 }
 
 // CustomTypeMapping defines how to map OpenAPI formats to TypeScript/io-ts types
@@ -53,9 +55,11 @@ func NewCustomTypeRegistry() *CustomTypeRegistry {
 			SingleFileName: "schemas.ts",
 		},
 		generation: GenerationConfig{
-			GeneratePackageJson:   true,
-			GeneratePartialCodecs: true,
-			GenerateHelpers:       true,
+			GeneratePackageJson:    true,
+			GeneratePartialCodecs:  true,
+			GenerateHelpers:        true,
+			GenerateSchemaRegistry: false,
+			GenerateSchemaNames:    false,
 		},
 	}
 
@@ -192,6 +196,8 @@ func (r *CustomTypeRegistry) LoadFromConfig(configPath string) error {
 	r.generation.GeneratePackageJson = config.Generation.GeneratePackageJson
 	r.generation.GeneratePartialCodecs = config.Generation.GeneratePartialCodecs
 	r.generation.GenerateHelpers = config.Generation.GenerateHelpers
+	r.generation.GenerateSchemaRegistry = config.Generation.GenerateSchemaRegistry
+	r.generation.GenerateSchemaNames = config.Generation.GenerateSchemaNames
 
 	// Register all custom types from config
 	for format, mapping := range config.CustomTypes {
@@ -210,9 +216,11 @@ func (r *CustomTypeRegistry) SaveExampleConfig(configPath string) error {
 			SingleFileName: "schemas.ts",
 		},
 		Generation: GenerationConfig{
-			GeneratePackageJson:   true,
-			GeneratePartialCodecs: true,
-			GenerateHelpers:       true,
+			GeneratePackageJson:    true,
+			GeneratePartialCodecs:  true,
+			GenerateHelpers:        true,
+			GenerateSchemaRegistry: false,
+			GenerateSchemaNames:    false,
 		},
 		CustomTypes: map[string]CustomTypeMapping{
 			"date-time": {

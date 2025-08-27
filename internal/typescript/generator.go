@@ -115,19 +115,23 @@ func (g *TypeScriptGenerator) generateSingleFile(dtos []generator.DTO, config ge
 	allImports := g.customTypes.GetAllImports(allFormats)
 
 	data := struct {
-		DTOs                  []generator.DTO
-		Config                generator.Config
-		Imports               []string
-		PackageName           string
-		GeneratePartialCodecs bool
-		GenerateHelpers       bool
+		DTOs                   []generator.DTO
+		Config                 generator.Config
+		Imports                []string
+		PackageName            string
+		GeneratePartialCodecs  bool
+		GenerateHelpers        bool
+		GenerateSchemaRegistry bool
+		GenerateSchemaNames    bool
 	}{
-		DTOs:                  dtos,
-		Config:                config,
-		Imports:               allImports,
-		PackageName:           g.getPackageName(config),
-		GeneratePartialCodecs: genConfig.GeneratePartialCodecs,
-		GenerateHelpers:       genConfig.GenerateHelpers,
+		DTOs:                   dtos,
+		Config:                 config,
+		Imports:                allImports,
+		PackageName:            g.getPackageName(config),
+		GeneratePartialCodecs:  genConfig.GeneratePartialCodecs,
+		GenerateHelpers:        genConfig.GenerateHelpers,
+		GenerateSchemaRegistry: genConfig.GenerateSchemaRegistry,
+		GenerateSchemaNames:    genConfig.GenerateSchemaNames,
 	}
 
 	err = tmpl.Execute(file, data)
@@ -185,15 +189,19 @@ func (g *TypeScriptGenerator) generateIndexFile(dtos []generator.DTO, config gen
 	}
 
 	data := struct {
-		DTOs            []generator.DTO
-		Config          generator.Config
-		PackageName     string
-		GenerateHelpers bool
+		DTOs                   []generator.DTO
+		Config                 generator.Config
+		PackageName            string
+		GenerateHelpers        bool
+		GenerateSchemaRegistry bool
+		GenerateSchemaNames    bool
 	}{
-		DTOs:            dtos,
-		Config:          config,
-		PackageName:     g.getPackageName(config),
-		GenerateHelpers: genConfig.GenerateHelpers,
+		DTOs:                   dtos,
+		Config:                 config,
+		PackageName:            g.getPackageName(config),
+		GenerateHelpers:        genConfig.GenerateHelpers,
+		GenerateSchemaRegistry: genConfig.GenerateSchemaRegistry,
+		GenerateSchemaNames:    genConfig.GenerateSchemaNames,
 	}
 
 	return tmpl.Execute(file, data)

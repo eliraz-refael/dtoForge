@@ -73,12 +73,12 @@ export const validateData = <T>(
   };
 };
 
-{{if .DTOs}}// All available schemas
+{{if .GenerateSchemaRegistry}}// All available schemas
 export const schemas = {
 {{range .DTOs}}  {{toCamelCase .Name}}: {{.Name}}Schema,
 {{end}}};
-
-// Schema names for runtime access
+{{end}}
+{{if .GenerateSchemaNames}}// Schema names for runtime access
 export const schemaNames = [
 {{range .DTOs}}  '{{.Name}}',
 {{end}}] as const;
@@ -150,15 +150,16 @@ export const validateData = <T>(
 };
 {{end}}
 
-// All available schemas
+{{if .GenerateSchemaRegistry}}// All available schemas
 export const schemas = {
 {{range .DTOs}}  {{toCamelCase .Name}}: {{.Name}}Schema,
 {{end}}};
-
-// Schema names for runtime access
+{{end}}
+{{if .GenerateSchemaNames}}// Schema names for runtime access
 export const schemaNames = [
 {{range .DTOs}}  '{{.Name}}',
 {{end}}] as const;
 
 export type SchemaName = typeof schemaNames[number];
+{{end}}
 `
