@@ -100,12 +100,12 @@ const formatValidationErrors = (errors: t.Errors): string[] => {
   });
 };
 
-{{if .DTOs}}// All available schemas
+{{if .GenerateSchemaRegistry}}// All available schemas
 export const schemas = {
 {{range .DTOs}}  {{toCamelCase .Name}}: {{.Name}}Codec,
 {{end}}};
-
-// Schema names for runtime access
+{{end}}
+{{if .GenerateSchemaNames}}// Schema names for runtime access
 export const schemaNames = [
 {{range .DTOs}}  '{{.Name}}',
 {{end}}] as const;
@@ -226,15 +226,16 @@ const formatValidationErrors = (errors: t.Errors): string[] => {
   });
 };
 
-{{end}}// All available schemas
+{{end}}{{if .GenerateSchemaRegistry}}// All available schemas
 export const schemas = {
 {{range .DTOs}}  {{toCamelCase .Name}}: {{.Name}}Codec,
 {{end}}};
-
-// Schema names for runtime access
+{{end}}
+{{if .GenerateSchemaNames}}// Schema names for runtime access
 export const schemaNames = [
 {{range .DTOs}}  '{{.Name}}',
 {{end}}] as const;
 
 export type SchemaName = typeof schemaNames[number];
+{{end}}
 `

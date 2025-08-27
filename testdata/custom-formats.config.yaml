@@ -1,3 +1,10 @@
+generation:
+  generatePackageJson: true
+  generatePartialCodecs: true
+  generateHelpers: true
+  generateSchemaRegistry: true
+  generateSchemaNames: true
+
 customTypes:
   # UUID with branded type
   uuid:

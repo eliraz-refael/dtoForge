@@ -59,3 +59,11 @@ generation:
 
   # Whether to generate validation helper functions
   generateHelpers: true
+
+  # Whether to generate the schemas registry object (all schemas in one object)
+  # Useful for dynamic schema access, but increases file size for large APIs
+  generateSchemaRegistry: false
+
+  # Whether to generate the schemaNames array (list of all schema names)
+  # Useful for runtime introspection, but increases file size for large APIs
+  generateSchemaNames: false

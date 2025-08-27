@@ -18,8 +18,10 @@ type OutputConfig struct {
 
 // GenerationConfig defines what to generate
 type GenerationConfig struct {
-	GeneratePackageJson bool `yaml:"generatePackageJson"`
-	GenerateHelpers     bool `yaml:"generateHelpers"`
+	GeneratePackageJson    bool `yaml:"generatePackageJson"`
+	GenerateHelpers        bool `yaml:"generateHelpers"`
+	GenerateSchemaRegistry bool `yaml:"generateSchemaRegistry"`
+	GenerateSchemaNames    bool `yaml:"generateSchemaNames"`
 }
 
 // CustomTypeMapping defines how to map OpenAPI formats to Zod types
@@ -58,8 +60,10 @@ func NewCustomTypeRegistry() *CustomTypeRegistry {
 			SingleFileName: "schemas.ts",
 		},
 		generation: GenerationConfig{
-			GeneratePackageJson: true,
-			GenerateHelpers:     true,
+			GeneratePackageJson:    true,
+			GenerateHelpers:        true,
+			GenerateSchemaRegistry: false,
+			GenerateSchemaNames:    false,
 		},
 	}
 
@@ -203,6 +207,8 @@ func (r *CustomTypeRegistry) LoadFromConfig(configPath string) error {
 	// Load generation config if provided
 	r.generation.GeneratePackageJson = zodConfig.Generation.GeneratePackageJson
 	r.generation.GenerateHelpers = zodConfig.Generation.GenerateHelpers
+	r.generation.GenerateSchemaRegistry = zodConfig.Generation.GenerateSchemaRegistry
+	r.generation.GenerateSchemaNames = zodConfig.Generation.GenerateSchemaNames
 
 	// Register all custom types from config
 	for format, mapping := range zodConfig.CustomTypes {
@@ -222,8 +228,10 @@ func (r *CustomTypeRegistry) SaveExampleConfig(configPath string) error {
 				SingleFileName: "schemas.ts",
 			},
 			Generation: GenerationConfig{
-				GeneratePackageJson: true,
-				GenerateHelpers:     true,
+				GeneratePackageJson:    true,
+				GenerateHelpers:        true,
+				GenerateSchemaRegistry: false,
+				GenerateSchemaNames:    false,
 			},
 			CustomTypes: map[string]CustomTypeMapping{
 				"date-time": {
