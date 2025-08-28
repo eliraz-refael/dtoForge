@@ -52,9 +52,9 @@ const formatValidationErrors = (errors: t.Errors): string[] => {
 
 // All available schemas
 export const schemas = {
-  document: DocumentCodec,
-  event: EventCodec,
-  user: UserCodec,
+  document: Document,
+  event: Event,
+  user: User,
 };
 
 // Schema names for runtime access

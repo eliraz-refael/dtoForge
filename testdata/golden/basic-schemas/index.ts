@@ -53,10 +53,10 @@ const formatValidationErrors = (errors: t.Errors): string[] => {
 
 // All available schemas
 export const schemas = {
-  category: CategoryCodec,
-  product: ProductCodec,
-  status: StatusCodec,
-  user: UserCodec,
+  category: Category,
+  product: Product,
+  status: Status,
+  user: User,
 };
 
 // Schema names for runtime access

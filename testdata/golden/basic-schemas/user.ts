@@ -6,31 +6,35 @@ import * as t from 'io-ts';
  * A user in the system
  */
 // Schema: User
-export const UserCodec = t.type({
-  // User's age (optional)
-  age: t.union([t.number, t.undefined]),
-  // User's email address
-  email: t.union([t.string, t.undefined]),
-  // Unique user identifier
-  id: t.string,
-  // Whether the user account is active
-  isActive: t.union([t.boolean, t.undefined]),
-  // Full name of the user
-  name: t.string,
-});
+export const User = t.intersection([
+  t.type({
+    // Unique user identifier
+    id: t.string,
+    // Full name of the user
+    name: t.string,
+  }),
+  t.partial({
+    // User's age (optional)
+    age: t.number,
+    // User's email address
+    email: t.string,
+    // Whether the user account is active
+    isActive: t.boolean,
+  })
+])
 
-export type User = t.TypeOf<typeof UserCodec>;
+export type User = t.TypeOf<typeof User>;
 
 // Validation helper
 export const isUser = (value: unknown): value is User =>
-  UserCodec.is(value);
+  User.is(value);
 
 // Decode helper with error handling
 export const decodeUser = (value: unknown) =>
-  UserCodec.decode(value);
+  User.decode(value);
 
 // Partial codec for updates (all fields optional)
-export const UserPartialCodec = t.partial({
+export const UserPartial = t.partial({
   age: t.number,
   email: t.string,
   id: t.string,
@@ -38,5 +42,5 @@ export const UserPartialCodec = t.partial({
   name: t.string,
 });
 
-export type UserPartial = t.TypeOf<typeof UserPartialCodec>;
+export type UserPartial = t.TypeOf<typeof UserPartial>;
 

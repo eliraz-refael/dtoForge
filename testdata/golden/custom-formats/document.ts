@@ -10,34 +10,38 @@ import { UUID } from './branded-types';
  * Document with metadata
  */
 // Schema: Document
-export const DocumentCodec = t.type({
-  // Document content (base64 encoded)
-  content: t.union([Base64String, t.undefined]),
-  // Document identifier
-  documentId: UUID,
-  // Download URL
-  downloadUrl: t.union([URLString, t.undefined]),
-  // Upload timestamp
-  uploadedAt: DateTimeString,
-});
+export const Document = t.intersection([
+  t.type({
+    // Document identifier
+    documentId: UUID,
+    // Upload timestamp
+    uploadedAt: DateTimeString,
+  }),
+  t.partial({
+    // Document content (base64 encoded)
+    content: Base64String,
+    // Download URL
+    downloadUrl: URLString,
+  })
+])
 
-export type Document = t.TypeOf<typeof DocumentCodec>;
+export type Document = t.TypeOf<typeof Document>;
 
 // Validation helper
 export const isDocument = (value: unknown): value is Document =>
-  DocumentCodec.is(value);
+  Document.is(value);
 
 // Decode helper with error handling
 export const decodeDocument = (value: unknown) =>
-  DocumentCodec.decode(value);
+  Document.decode(value);
 
 // Partial codec for updates (all fields optional)
-export const DocumentPartialCodec = t.partial({
+export const DocumentPartial = t.partial({
   content: Base64String,
   documentId: UUID,
   downloadUrl: URLString,
   uploadedAt: DateTimeString,
 });
 
-export type DocumentPartial = t.TypeOf<typeof DocumentPartialCodec>;
+export type DocumentPartial = t.TypeOf<typeof DocumentPartial>;
 

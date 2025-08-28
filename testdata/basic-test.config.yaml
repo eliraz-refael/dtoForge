@@ -4,3 +4,4 @@ generation:
   generateHelpers: true
   generateSchemaRegistry: true
   generateSchemaNames: true
+  useInterfaces: false

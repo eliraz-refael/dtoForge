@@ -114,8 +114,29 @@ func (g *TypeScriptGenerator) generateSingleFile(dtos []generator.DTO, config ge
 	}
 	allImports := g.customTypes.GetAllImports(allFormats)
 
+	// Process DTOs to add template-specific data
+	type templateDTO struct {
+		generator.DTO
+		HasRequiredFields bool
+	}
+
+	var templateDTOs []templateDTO
+	for _, dto := range dtos {
+		hasRequired := false
+		for _, prop := range dto.Properties {
+			if prop.Required {
+				hasRequired = true
+				break
+			}
+		}
+		templateDTOs = append(templateDTOs, templateDTO{
+			DTO:               dto,
+			HasRequiredFields: hasRequired,
+		})
+	}
+
 	data := struct {
-		DTOs                   []generator.DTO
+		DTOs                   []templateDTO
 		Config                 generator.Config
 		Imports                []string
 		PackageName            string
@@ -123,8 +144,9 @@ func (g *TypeScriptGenerator) generateSingleFile(dtos []generator.DTO, config ge
 		GenerateHelpers        bool
 		GenerateSchemaRegistry bool
 		GenerateSchemaNames    bool
+		UseInterfaces          bool
 	}{
-		DTOs:                   dtos,
+		DTOs:                   templateDTOs,
 		Config:                 config,
 		Imports:                allImports,
 		PackageName:            g.getPackageName(config),
@@ -132,6 +154,7 @@ func (g *TypeScriptGenerator) generateSingleFile(dtos []generator.DTO, config ge
 		GenerateHelpers:        genConfig.GenerateHelpers,
 		GenerateSchemaRegistry: genConfig.GenerateSchemaRegistry,
 		GenerateSchemaNames:    genConfig.GenerateSchemaNames,
+		UseInterfaces:          genConfig.UseInterfaces,
 	}
 
 	err = tmpl.Execute(file, data)
@@ -157,18 +180,33 @@ func (g *TypeScriptGenerator) generateDTOFile(dto generator.DTO, config generato
 		return err
 	}
 
+	// Check if DTO has required fields
+	hasRequired := false
+	for _, prop := range dto.Properties {
+		if prop.Required {
+			hasRequired = true
+			break
+		}
+	}
+
 	data := struct {
 		DTO                   generator.DTO
 		Config                generator.Config
 		Imports               []string
 		PackageName           string
 		GeneratePartialCodecs bool
+		GenerateHelpers       bool
+		UseInterfaces         bool
+		HasRequiredFields     bool
 	}{
 		DTO:                   dto,
 		Config:                config,
 		Imports:               g.calculateImports(dto),
 		PackageName:           g.getPackageName(config),
 		GeneratePartialCodecs: genConfig.GeneratePartialCodecs,
+		GenerateHelpers:       genConfig.GenerateHelpers,
+		UseInterfaces:         genConfig.UseInterfaces,
+		HasRequiredFields:     hasRequired,
 	}
 	return tmpl.Execute(file, data)
 }
@@ -282,7 +320,7 @@ func (g *TypeScriptGenerator) toIoTsType(irType generator.IRType, nullable bool)
 		elementType := g.toIoTsType(t.ElementType, false)
 		baseType = fmt.Sprintf("t.array(%s)", elementType)
 	case generator.ReferenceType:
-		baseType = fmt.Sprintf("%sCodec", t.RefName)
+		baseType = t.RefName
 	case generator.EnumType:
 		values := make([]string, len(t.Values))
 		for i, v := range t.Values {
@@ -291,7 +329,7 @@ func (g *TypeScriptGenerator) toIoTsType(irType generator.IRType, nullable bool)
 		baseType = fmt.Sprintf("t.keyof({%s})", strings.Join(values, ", "))
 	case generator.ObjectType:
 		if t.RefName != "" {
-			baseType = fmt.Sprintf("%sCodec", t.RefName)
+			baseType = t.RefName
 		} else {
 			baseType = "t.unknown" // inline objects need special handling
 		}

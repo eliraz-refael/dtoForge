@@ -6,36 +6,40 @@ import * as t from 'io-ts';
  * A product in the catalog
  */
 // Schema: Product
-export const ProductCodec = t.type({
-  category: t.union([CategoryCodec, t.undefined]),
-  // Product description
-  description: t.union([t.string, t.undefined]),
-  // Product identifier
-  id: t.string,
-  // Product name
-  name: t.string,
-  // Product price
-  price: t.number,
-});
+export const Product = t.intersection([
+  t.type({
+    // Product identifier
+    id: t.string,
+    // Product name
+    name: t.string,
+    // Product price
+    price: t.number,
+  }),
+  t.partial({
+    category: Category,
+    // Product description
+    description: t.string,
+  })
+])
 
-export type Product = t.TypeOf<typeof ProductCodec>;
+export type Product = t.TypeOf<typeof Product>;
 
 // Validation helper
 export const isProduct = (value: unknown): value is Product =>
-  ProductCodec.is(value);
+  Product.is(value);
 
 // Decode helper with error handling
 export const decodeProduct = (value: unknown) =>
-  ProductCodec.decode(value);
+  Product.decode(value);
 
 // Partial codec for updates (all fields optional)
-export const ProductPartialCodec = t.partial({
-  category: CategoryCodec,
+export const ProductPartial = t.partial({
+  category: Category,
   description: t.string,
   id: t.string,
   name: t.string,
   price: t.number,
 });
 
-export type ProductPartial = t.TypeOf<typeof ProductPartialCodec>;
+export type ProductPartial = t.TypeOf<typeof ProductPartial>;
 

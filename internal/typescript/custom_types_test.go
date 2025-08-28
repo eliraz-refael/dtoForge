@@ -165,11 +165,11 @@ func TestCustomTypeRegistry_GenerationConfig(t *testing.T) {
 	if !config.GeneratePackageJson {
 		t.Error("Should generate package.json by default")
 	}
-	if !config.GeneratePartialCodecs {
-		t.Error("Should generate partial codecs by default")
+	if config.GeneratePartialCodecs {
+		t.Error("Should not generate partial codecs by default")
 	}
-	if !config.GenerateHelpers {
-		t.Error("Should generate helpers by default")
+	if config.GenerateHelpers {
+		t.Error("Should not generate helpers by default")
 	}
 }
 

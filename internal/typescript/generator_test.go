@@ -86,7 +86,7 @@ func TestTypeScriptGenerator_ToIoTsType(t *testing.T) {
 			name:     "Reference type",
 			irType:   generator.ReferenceType{RefName: "User"},
 			nullable: false,
-			expected: "UserCodec",
+			expected: "User",
 		},
 		{
 			name:     "Enum type",
@@ -98,7 +98,7 @@ func TestTypeScriptGenerator_ToIoTsType(t *testing.T) {
 			name:     "Object type with reference",
 			irType:   generator.ObjectType{RefName: "Product"},
 			nullable: false,
-			expected: "ProductCodec",
+			expected: "Product",
 		},
 	}
 
@@ -287,13 +287,13 @@ func TestTypeScriptGenerator_Generate_MultipleFiles(t *testing.T) {
 
 	// Check content of user.ts
 	userFile := filepath.Join(tempDir, "user.ts")
-	testutils.AssertFileContains(t, userFile, "export const UserCodec = t.type({")
-	testutils.AssertFileContains(t, userFile, "export type User = t.TypeOf<typeof UserCodec>;")
+	testutils.AssertFileContains(t, userFile, "export const User = t.intersection([")
+	testutils.AssertFileContains(t, userFile, "export interface User extends t.TypeOf<typeof User> {}")
 	testutils.AssertFileContains(t, userFile, "import * as t from 'io-ts';")
 
 	// Check content of status.ts (enum)
 	statusFile := filepath.Join(tempDir, "status.ts")
-	testutils.AssertFileContains(t, statusFile, "export const StatusCodec = t.keyof(StatusValues);")
+	testutils.AssertFileContains(t, statusFile, "export const Status = t.keyof({")
 	testutils.AssertFileContains(t, statusFile, "'active': null")
 	testutils.AssertFileContains(t, statusFile, "'inactive': null")
 	testutils.AssertFileContains(t, statusFile, "'pending': null")
@@ -321,7 +321,8 @@ func TestTypeScriptGenerator_Generate_SingleFile(t *testing.T) {
 generation:
   generatePackageJson: false
   generateHelpers: true
-  generatePartialCodecs: true`
+  generatePartialCodecs: true
+  useInterfaces: false`
 
 	configPath := testutils.WriteFile(t, tempDir, "config.yaml", configContent)
 
@@ -361,11 +362,11 @@ generation:
 	content := testutils.ReadFile(t, schemaFile)
 
 	// Should contain both schemas
-	if !strings.Contains(content, "export const UserCodec") {
-		t.Error("Single file should contain UserCodec")
+	if !strings.Contains(content, "export const User") {
+		t.Error("Single file should contain User")
 	}
-	if !strings.Contains(content, "export const StatusCodec") {
-		t.Error("Single file should contain StatusCodec")
+	if !strings.Contains(content, "export const Status") {
+		t.Error("Single file should contain Status")
 	}
 
 	// Should contain helper functions
@@ -374,8 +375,8 @@ generation:
 	}
 
 	// Should contain partial codecs
-	if !strings.Contains(content, "UserPartialCodec") {
-		t.Error("Single file should contain UserPartialCodec")
+	if !strings.Contains(content, "UserPartial") {
+		t.Error("Single file should contain UserPartial")
 	}
 }
 

@@ -10,31 +10,35 @@ import { UUID } from './branded-types';
  * System event with timestamps
  */
 // Schema: Event
-export const EventCodec = t.type({
-  // Date of the event (without time)
-  eventDate: t.union([DateString, t.undefined]),
-  // Event identifier
-  eventId: UUID,
-  // Related resource URL
-  resourceUrl: t.union([URLString, t.undefined]),
-  // When the event is scheduled
-  scheduledFor: t.union([DateTimeString, t.undefined]),
-  // When the event occurred
-  timestamp: DateTimeString,
-});
+export const Event = t.intersection([
+  t.type({
+    // Event identifier
+    eventId: UUID,
+    // When the event occurred
+    timestamp: DateTimeString,
+  }),
+  t.partial({
+    // Date of the event (without time)
+    eventDate: DateString,
+    // Related resource URL
+    resourceUrl: URLString,
+    // When the event is scheduled
+    scheduledFor: DateTimeString,
+  })
+])
 
-export type Event = t.TypeOf<typeof EventCodec>;
+export type Event = t.TypeOf<typeof Event>;
 
 // Validation helper
 export const isEvent = (value: unknown): value is Event =>
-  EventCodec.is(value);
+  Event.is(value);
 
 // Decode helper with error handling
 export const decodeEvent = (value: unknown) =>
-  EventCodec.decode(value);
+  Event.decode(value);
 
 // Partial codec for updates (all fields optional)
-export const EventPartialCodec = t.partial({
+export const EventPartial = t.partial({
   eventDate: DateString,
   eventId: UUID,
   resourceUrl: URLString,
@@ -42,5 +46,5 @@ export const EventPartialCodec = t.partial({
   timestamp: DateTimeString,
 });
 
-export type EventPartial = t.TypeOf<typeof EventPartialCodec>;
+export type EventPartial = t.TypeOf<typeof EventPartial>;
 

@@ -44,11 +44,13 @@ components:
 			wantFiles: []string{"index.ts", "user.ts", "package.json"},
 			wantContent: map[string][]string{
 				"user.ts": {
-					"export const UserCodec = t.type({",
+					"export const User = t.intersection([",
+					"t.type({",
 					"id: t.string,",
 					"name: t.string,",
-					"email: t.union([t.string, t.undefined]),",
-					"export type User = t.TypeOf<typeof UserCodec>;",
+					"t.partial({",
+					"email: t.string,",
+					"export interface User extends t.TypeOf<typeof User> {}",
 				},
 				"index.ts": {
 					"export * from './user';",
@@ -78,6 +80,8 @@ components:
           format: date-time
 `,
 			config: `
+generation:
+  useInterfaces: false
 customTypes:
   uuid:
     ioTsType: "UUID"
@@ -94,7 +98,7 @@ customTypes:
 					"import { UUID } from './branded-types';",
 					"import { DateTimeString } from './branded-types';",
 					"id: UUID,",
-					"createdAt: t.union([DateTimeString, t.undefined]),",
+					"createdAt: DateTimeString,",
 				},
 			},
 		},
