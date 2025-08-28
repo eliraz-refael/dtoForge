@@ -3,7 +3,7 @@
   "version": "${VERSION}",
   "description": "OpenAPI to TypeScript Schema Generator with Runtime Validation",
   "bin": {
-    "dtoforge": "./bin/dtoForge"
+    "dtoforge": "./bin/dtoforge"
   },
   "scripts": {
     "postinstall": "node install.js"
@@ -14,6 +14,7 @@
     "bin/",
     "binaries/"
   ],
+  "preferGlobal": true,
   "keywords": ["openapi", "typescript", "validation", "io-ts", "zod", "schema", "dto"],
   "author": "Eliraz Kedmi",
   "license": "MIT",

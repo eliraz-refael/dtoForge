@@ -38,20 +38,42 @@ function installBinary() {
       fs.mkdirSync(binDir, { recursive: true });
     }
 
-    // Copy the correct binary to bin/dtoForge
-    const targetName = process.platform === 'win32' ? 'dtoForge.exe' : 'dtoForge';
-    const targetPath = path.join(binDir, targetName);
+    if (process.platform === 'win32') {
+      // On Windows, create the .exe file and a .cmd wrapper
+      const targetPath = path.join(binDir, 'dtoforge.exe');
+      const wrapperPath = path.join(binDir, 'dtoforge.cmd');
+      
+      fs.copyFileSync(sourcePath, targetPath);
+      
+      // Create .cmd wrapper for Windows
+      const wrapperContent = `@echo off\n"%~dp0\\dtoforge.exe" %*\n`;
+      fs.writeFileSync(wrapperPath, wrapperContent);
+    } else {
+      // On Unix-like systems, copy binary and create shell script wrapper
+      const binaryPath = path.join(binDir, 'dtoforge-binary');
+      const targetPath = path.join(binDir, 'dtoforge');
+      
+      fs.copyFileSync(sourcePath, binaryPath);
+      fs.chmodSync(binaryPath, 0o755);
+      
+      // Create shell script wrapper
+      const wrapperContent = `#!/bin/sh
+basedir=$(dirname "$(echo "$0" | sed -e 's,\\\\,/,g')")
 
-    fs.copyFileSync(sourcePath, targetPath);
+case \`uname\` in
+    *CYGWIN*|*MINGW*|*MSYS*) basedir=\`cygpath -w "$basedir"\`;;
+esac
 
-    // Make executable on Unix-like systems
-    if (process.platform !== 'win32') {
+exec "$basedir/dtoforge-binary" "$@"
+`;
+      fs.writeFileSync(targetPath, wrapperContent);
       fs.chmodSync(targetPath, 0o755);
     }
 
     console.log(`✅ DtoForge installed successfully!`);
     console.log(`🎯 Use: npx dtoforge --help`);
     console.log(`🌍 Or install globally: npm install -g dtoforge`);
+    console.log(`📍 Platform: ${process.platform}-${process.arch}`);
 
   } catch (error) {
     console.error(`❌ Installation failed: ${error.message}`);
