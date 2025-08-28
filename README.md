@@ -42,9 +42,11 @@ npm install -g dtoforge
 # Or use in projects
 npm install --save-dev dtoforge
 
-# Or run directly
+# Or run directly (no installation needed)
 npx dtoforge --help
 ```
+
+> **✨ New:** NPM package now supports proper global installation and `npx` usage across all platforms (Windows, macOS, Linux)!
 
 ## 🎯 Quick Start
 
@@ -58,6 +60,24 @@ dtoforge -openapi api.yaml -lang typescript-zod -out ./generated
 # Use configuration file
 dtoforge -openapi api.yaml -config dtoforge.config.yaml
 ```
+
+## 🆕 Recent Improvements
+
+### **Enhanced TypeScript Output (v1.x+)** 
+- **Interface-based types** - More intuitive `interface User extends t.TypeOf<typeof User> {}` (default)
+- **Cleaner type names** - No more redundant "Codec" suffixes (`User` instead of `UserCodec`)
+- **Better field handling** - Smart `t.intersection` pattern for required/optional field separation
+- **Simplified enums** - Direct inline `t.keyof` generation for cleaner output
+
+### **Optimized Defaults**
+- **Reduced bundle size** - Schema registry and helpers disabled by default
+- **Faster builds** - Only generate what you need
+- **Migration-friendly** - Perfect for Swagger 2.0 → OpenAPI 3.0 upgrades
+
+### **Cross-Platform NPM Support**
+- **Proper global installation** - `npm install -g dtoforge` works everywhere
+- **NPX compatibility** - `npx dtoforge` works without installation
+- **Multi-architecture** - Supports ARM64, x64 on Windows, macOS, Linux
 
 ## ✨ What You Get
 
@@ -109,19 +129,24 @@ const user = UserSchema.parse(apiResponse); // ✅ Type-safe!
 **With io-ts:**
 ```typescript
 import * as t from 'io-ts';
+import { DateFromISOString } from 'io-ts-types';
 
-export const UserCodec = t.type({
-  id: t.string,
-  email: t.string,
-  name: t.string,
-  age: t.union([t.number, t.undefined]),
-  createdAt: t.union([DateFromISOString, t.undefined]),
-});
+export const User = t.intersection([
+  t.type({
+    id: t.string,
+    email: t.string,
+    name: t.string,
+  }),
+  t.partial({
+    age: t.number,
+    createdAt: DateFromISOString,
+  })
+]);
 
-export type User = t.TypeOf<typeof UserCodec>;
+export interface User extends t.TypeOf<typeof User> {}
 
 // Runtime validation with detailed errors
-const result = UserCodec.decode(apiResponse);
+const result = User.decode(apiResponse);
 if (isRight(result)) {
   const user: User = result.right; // ✅ Type-safe!
 }
@@ -188,7 +213,11 @@ customTypes:
 # What to generate
 generation:
   generatePackageJson: true
-  generateHelpers: true
+  generateHelpers: false  # Generate validation helpers (default: false)
+  generatePartialCodecs: false  # Generate partial type variants (default: false)
+  generateSchemaRegistry: false  # Generate schema registry object (default: false)
+  generateSchemaNames: false  # Generate schema names array (default: false)
+  useInterfaces: true  # Use interfaces instead of type aliases (default: true)
 ```
 
 ## 🔧 Advanced Features
