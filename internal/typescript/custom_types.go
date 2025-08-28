@@ -22,6 +22,7 @@ type GenerationConfig struct {
 	GenerateHelpers        bool `yaml:"generateHelpers"`
 	GenerateSchemaRegistry bool `yaml:"generateSchemaRegistry"`
 	GenerateSchemaNames    bool `yaml:"generateSchemaNames"`
+	UseInterfaces          bool `yaml:"useInterfaces"`
 }
 
 // CustomTypeMapping defines how to map OpenAPI formats to TypeScript/io-ts types
@@ -56,10 +57,11 @@ func NewCustomTypeRegistry() *CustomTypeRegistry {
 		},
 		generation: GenerationConfig{
 			GeneratePackageJson:    true,
-			GeneratePartialCodecs:  true,
-			GenerateHelpers:        true,
+			GeneratePartialCodecs:  false,
+			GenerateHelpers:        false,
 			GenerateSchemaRegistry: false,
 			GenerateSchemaNames:    false,
+			UseInterfaces:          true,
 		},
 	}
 
@@ -198,6 +200,7 @@ func (r *CustomTypeRegistry) LoadFromConfig(configPath string) error {
 	r.generation.GenerateHelpers = config.Generation.GenerateHelpers
 	r.generation.GenerateSchemaRegistry = config.Generation.GenerateSchemaRegistry
 	r.generation.GenerateSchemaNames = config.Generation.GenerateSchemaNames
+	r.generation.UseInterfaces = config.Generation.UseInterfaces
 
 	// Register all custom types from config
 	for format, mapping := range config.CustomTypes {
@@ -217,10 +220,11 @@ func (r *CustomTypeRegistry) SaveExampleConfig(configPath string) error {
 		},
 		Generation: GenerationConfig{
 			GeneratePackageJson:    true,
-			GeneratePartialCodecs:  true,
-			GenerateHelpers:        true,
+			GeneratePartialCodecs:  false,
+			GenerateHelpers:        false,
 			GenerateSchemaRegistry: false,
 			GenerateSchemaNames:    false,
+			UseInterfaces:          true,
 		},
 		CustomTypes: map[string]CustomTypeMapping{
 			"date-time": {

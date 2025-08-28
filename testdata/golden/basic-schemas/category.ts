@@ -6,31 +6,35 @@ import * as t from 'io-ts';
  * Product category
  */
 // Schema: Category
-export const CategoryCodec = t.type({
-  // Category identifier
-  id: t.string,
-  // Category name
-  name: t.string,
-  // Parent category ID (for nested categories)
-  parentId: t.union([t.string, t.undefined]),
-});
+export const Category = t.intersection([
+  t.type({
+    // Category identifier
+    id: t.string,
+    // Category name
+    name: t.string,
+  }),
+  t.partial({
+    // Parent category ID (for nested categories)
+    parentId: t.string,
+  })
+])
 
-export type Category = t.TypeOf<typeof CategoryCodec>;
+export type Category = t.TypeOf<typeof Category>;
 
 // Validation helper
 export const isCategory = (value: unknown): value is Category =>
-  CategoryCodec.is(value);
+  Category.is(value);
 
 // Decode helper with error handling
 export const decodeCategory = (value: unknown) =>
-  CategoryCodec.decode(value);
+  Category.decode(value);
 
 // Partial codec for updates (all fields optional)
-export const CategoryPartialCodec = t.partial({
+export const CategoryPartial = t.partial({
   id: t.string,
   name: t.string,
   parentId: t.string,
 });
 
-export type CategoryPartial = t.TypeOf<typeof CategoryPartialCodec>;
+export type CategoryPartial = t.TypeOf<typeof CategoryPartial>;
 

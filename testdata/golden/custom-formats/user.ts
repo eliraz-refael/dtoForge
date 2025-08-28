@@ -12,33 +12,37 @@ import { UUID } from './branded-types';
  * User with various formatted fields
  */
 // Schema: User
-export const UserCodec = t.type({
-  // Base64 encoded avatar image
-  avatarData: t.union([Base64String, t.undefined]),
-  // User's birth date
-  birthDate: t.union([DateString, t.undefined]),
-  // Account creation timestamp
-  createdAt: DateTimeString,
-  // User's email address
-  email: EmailString,
-  // Unique user identifier (UUID)
-  id: UUID,
-  // URL to user's profile picture
-  profilePicture: t.union([URLString, t.undefined]),
-});
+export const User = t.intersection([
+  t.type({
+    // Account creation timestamp
+    createdAt: DateTimeString,
+    // User's email address
+    email: EmailString,
+    // Unique user identifier (UUID)
+    id: UUID,
+  }),
+  t.partial({
+    // Base64 encoded avatar image
+    avatarData: Base64String,
+    // User's birth date
+    birthDate: DateString,
+    // URL to user's profile picture
+    profilePicture: URLString,
+  })
+])
 
-export type User = t.TypeOf<typeof UserCodec>;
+export type User = t.TypeOf<typeof User>;
 
 // Validation helper
 export const isUser = (value: unknown): value is User =>
-  UserCodec.is(value);
+  User.is(value);
 
 // Decode helper with error handling
 export const decodeUser = (value: unknown) =>
-  UserCodec.decode(value);
+  User.decode(value);
 
 // Partial codec for updates (all fields optional)
-export const UserPartialCodec = t.partial({
+export const UserPartial = t.partial({
   avatarData: Base64String,
   birthDate: DateString,
   createdAt: DateTimeString,
@@ -47,5 +51,5 @@ export const UserPartialCodec = t.partial({
   profilePicture: URLString,
 });
 
-export type UserPartial = t.TypeOf<typeof UserPartialCodec>;
+export type UserPartial = t.TypeOf<typeof UserPartial>;
 

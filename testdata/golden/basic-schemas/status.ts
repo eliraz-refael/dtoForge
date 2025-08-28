@@ -6,22 +6,20 @@ import * as t from 'io-ts';
  * Status enumeration
  */
 // Enum: Status
-export const StatusValues = {
+export const Status = t.keyof({
   'active': null,
   'inactive': null,
   'pending': null,
   'archived': null
-} as const;
+});
 
-export const StatusCodec = t.keyof(StatusValues);
-
-export type Status = t.TypeOf<typeof StatusCodec>;
+export type Status = t.TypeOf<typeof Status>;
 
 // Validation helper
 export const isStatus = (value: unknown): value is Status =>
-  StatusCodec.is(value);
+  Status.is(value);
 
 // Decode helper with error handling
 export const decodeStatus = (value: unknown) =>
-  StatusCodec.decode(value);
+  Status.decode(value);
 
