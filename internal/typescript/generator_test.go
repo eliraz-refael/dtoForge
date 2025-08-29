@@ -104,7 +104,7 @@ func TestTypeScriptGenerator_ToIoTsType(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := gen.toIoTsType(tt.irType, tt.nullable)
+			got := toIoTsType(tt.irType, tt.nullable, gen.customTypes)
 			if got != tt.expected {
 				t.Errorf("toIoTsType() = %v, want %v", got, tt.expected)
 			}
@@ -168,7 +168,7 @@ func TestTypeScriptGenerator_ToTSType(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := gen.toTSType(tt.irType, tt.nullable)
+			got := toTSType(tt.irType, tt.nullable, gen.customTypes)
 			if got != tt.expected {
 				t.Errorf("toTSType() = %v, want %v", got, tt.expected)
 			}
@@ -177,7 +177,6 @@ func TestTypeScriptGenerator_ToTSType(t *testing.T) {
 }
 
 func TestTypeScriptGenerator_UtilityFunctions(t *testing.T) {
-	gen := NewTypeScriptGenerator()
 
 	tests := []struct {
 		name     string
@@ -185,12 +184,12 @@ func TestTypeScriptGenerator_UtilityFunctions(t *testing.T) {
 		input    string
 		expected string
 	}{
-		{"CamelCase", gen.toCamelCase, "UserName", "userName"},
-		{"CamelCase empty", gen.toCamelCase, "", ""},
-		{"PascalCase", gen.toPascalCase, "userName", "UserName"},
-		{"PascalCase empty", gen.toPascalCase, "", ""},
-		{"KebabCase", gen.toKebabCase, "UserName", "user-name"},
-		{"KebabCase already lowercase", gen.toKebabCase, "username", "username"},
+		{"CamelCase", toCamelCase, "UserName", "userName"},
+		{"CamelCase empty", toCamelCase, "", ""},
+		{"PascalCase", toPascalCase, "userName", "UserName"},
+		{"PascalCase empty", toPascalCase, "", ""},
+		{"KebabCase", toKebabCase, "UserName", "user-name"},
+		{"KebabCase already lowercase", toKebabCase, "username", "username"},
 	}
 
 	for _, tt := range tests {
@@ -204,7 +203,6 @@ func TestTypeScriptGenerator_UtilityFunctions(t *testing.T) {
 }
 
 func TestTypeScriptGenerator_HasDescription(t *testing.T) {
-	gen := NewTypeScriptGenerator()
 
 	tests := []struct {
 		name        string
@@ -219,7 +217,7 @@ func TestTypeScriptGenerator_HasDescription(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := gen.hasDescription(tt.description)
+			got := hasDescription(tt.description)
 			if got != tt.expected {
 				t.Errorf("hasDescription() = %v, want %v", got, tt.expected)
 			}
@@ -228,7 +226,6 @@ func TestTypeScriptGenerator_HasDescription(t *testing.T) {
 }
 
 func TestTypeScriptGenerator_IsRequired(t *testing.T) {
-	gen := NewTypeScriptGenerator()
 
 	tests := []struct {
 		name     string
@@ -244,7 +241,7 @@ func TestTypeScriptGenerator_IsRequired(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := gen.isRequired(tt.propName, tt.required)
+			got := isRequired(tt.propName, tt.required)
 			if got != tt.expected {
 				t.Errorf("isRequired() = %v, want %v", got, tt.expected)
 			}
