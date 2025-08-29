@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 	"text/template"
+	"unicode"
 
 	"dtoForge/internal/generator"
 )
@@ -288,7 +289,15 @@ func (g *TypeScriptGenerator) templateFuncs() template.FuncMap {
 		"quote":          g.quote,
 		"len":            func(slice []string) int { return len(slice) },
 		"add":            func(a, b int) int { return a + b },
+		"sanitizePropertyName": g.sanitizePropertyName,
+		"safePropertyName": g.safePropertyName, // Combined camelCase + sanitize
 	}
+}
+
+// safePropertyName combines camelCase conversion with property name sanitization
+func (g *TypeScriptGenerator) safePropertyName(name string) string {
+	camelName := g.toCamelCase(name)
+	return g.sanitizePropertyName(camelName)
 }
 
 // toIoTsType converts an IRType to io-ts codec using custom type mappings
@@ -438,6 +447,54 @@ func (g *TypeScriptGenerator) hasDescription(desc string) bool {
 
 func (g *TypeScriptGenerator) quote(s string) string {
 	return fmt.Sprintf("'%s'", s)
+}
+
+// sanitizePropertyName ensures property names are valid JavaScript identifiers
+// If not valid, wraps them in quotes for object literal syntax
+func (g *TypeScriptGenerator) sanitizePropertyName(name string) string {
+	if isValidJSIdentifier(name) {
+		return name
+	}
+	return fmt.Sprintf(`"%s"`, name)
+}
+
+// isValidJSIdentifier checks if a string is a valid JavaScript identifier
+func isValidJSIdentifier(name string) bool {
+	if len(name) == 0 {
+		return false
+	}
+
+	// Check if it starts with a letter, underscore, or dollar sign
+	first := rune(name[0])
+	if !unicode.IsLetter(first) && first != '_' && first != '$' {
+		return false
+	}
+
+	// Check rest of characters - letters, digits, underscore, dollar sign
+	for _, r := range name[1:] {
+		if !unicode.IsLetter(r) && !unicode.IsDigit(r) && r != '_' && r != '$' {
+			return false
+		}
+	}
+
+	// Check if it's a reserved keyword
+	return !isJSReservedWord(name)
+}
+
+// isJSReservedWord checks if a name is a JavaScript reserved word
+func isJSReservedWord(name string) bool {
+	reserved := map[string]bool{
+		"break": true, "case": true, "catch": true, "class": true, "const": true,
+		"continue": true, "debugger": true, "default": true, "delete": true, "do": true,
+		"else": true, "export": true, "extends": true, "finally": true, "for": true,
+		"function": true, "if": true, "import": true, "in": true, "instanceof": true,
+		"new": true, "return": true, "super": true, "switch": true, "this": true,
+		"throw": true, "try": true, "typeof": true, "var": true, "void": true,
+		"while": true, "with": true, "yield": true, "let": true, "static": true,
+		"enum": true, "implements": true, "interface": true, "package": true,
+		"private": true, "protected": true, "public": true, "await": true, "async": true,
+	}
+	return reserved[name]
 }
 
 func (g *TypeScriptGenerator) getPackageName(config generator.Config) string {
