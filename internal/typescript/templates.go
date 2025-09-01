@@ -13,7 +13,7 @@ export const {{.DTO.Name}} = t.keyof({
 {{range $i, $value := .DTO.EnumValues}}  {{quote $value}}: null{{if ne $i (len $.DTO.EnumValues | add -1)}},{{end}}
 {{end}}});
 
-{{if .UseInterfaces}}export interface {{.DTO.Name}} extends t.TypeOf<typeof {{.DTO.Name}}> {}{{else}}export type {{.DTO.Name}} = t.TypeOf<typeof {{.DTO.Name}}>;{{end}}
+{{if eq .DTO.Type "enum"}}export type {{.DTO.Name}} = t.TypeOf<typeof {{.DTO.Name}}>;{{/* Enums must always use type, not interface */}}{{else if .UseInterfaces}}export interface {{.DTO.Name}} extends t.TypeOf<typeof {{.DTO.Name}}> {}{{else}}export type {{.DTO.Name}} = t.TypeOf<typeof {{.DTO.Name}}>;{{end}}
 
 {{if .GenerateHelpers}}// Validation helper
 export const is{{.DTO.Name}} = (value: unknown): value is {{.DTO.Name}} =>
@@ -37,7 +37,7 @@ export const decode{{.DTO.Name}} = (value: unknown) =>
 {{end}}  {{safePropertyName .Name}}: {{toIoTsType .Type .Nullable}},
 {{end}}}){{end}}
 
-{{if .UseInterfaces}}export interface {{.DTO.Name}} extends t.TypeOf<typeof {{.DTO.Name}}> {}{{else}}export type {{.DTO.Name}} = t.TypeOf<typeof {{.DTO.Name}}>;{{end}}
+{{if eq .DTO.Type "enum"}}export type {{.DTO.Name}} = t.TypeOf<typeof {{.DTO.Name}}>;{{/* Enums must always use type, not interface */}}{{else if .UseInterfaces}}export interface {{.DTO.Name}} extends t.TypeOf<typeof {{.DTO.Name}}> {}{{else}}export type {{.DTO.Name}} = t.TypeOf<typeof {{.DTO.Name}}>;{{end}}
 
 {{if .GenerateHelpers}}// Validation helper
 export const is{{.DTO.Name}} = (value: unknown): value is {{.DTO.Name}} =>
@@ -176,7 +176,7 @@ export const {{.DTO.Name}} = t.keyof({
 {{range .DTO.EnumValues}}  '{{.}}': null,
 {{end}}});
 
-{{if not $.UseInterfaces}}export type {{.DTO.Name}} = t.TypeOf<typeof {{.DTO.Name}}>;{{end}}
+{{if eq .DTO.Type "enum"}}export type {{.DTO.Name}} = t.TypeOf<typeof {{.DTO.Name}}>;{{/* Enums must always use type, not interface */}}{{else if $.UseInterfaces}}export interface {{.DTO.Name}} extends t.TypeOf<typeof {{.DTO.Name}}> {}{{else}}export type {{.DTO.Name}} = t.TypeOf<typeof {{.DTO.Name}}>;{{end}}
 
 {{else}}// Schema: {{.DTO.Name}}
 {{if .HasRequiredFields}}export const {{.DTO.Name}} = t.intersection([
@@ -193,7 +193,7 @@ export const {{.DTO.Name}} = t.keyof({
 {{end}}  {{safePropertyName .Name}}: {{toIoTsType .Type .Nullable}},
 {{end}}}){{end}}
 
-{{if not $.UseInterfaces}}export type {{.DTO.Name}} = t.TypeOf<typeof {{.DTO.Name}}>;{{end}}
+{{if eq .DTO.Type "enum"}}export type {{.DTO.Name}} = t.TypeOf<typeof {{.DTO.Name}}>;{{/* Enums must always use type, not interface */}}{{else if $.UseInterfaces}}export interface {{.DTO.Name}} extends t.TypeOf<typeof {{.DTO.Name}}> {}{{else}}export type {{.DTO.Name}} = t.TypeOf<typeof {{.DTO.Name}}>;{{end}}
 
 {{if $.GeneratePartialCodecs}}// Partial codec for updates (all fields optional)
 export const {{.DTO.Name}}Partial = t.partial({
