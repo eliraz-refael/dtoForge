@@ -211,6 +211,31 @@ func hasDescription(desc string) bool {
 	return strings.TrimSpace(desc) != ""
 }
 
+// hasXNullable checks if a property has x-nullable: true extension
+func hasXNullable(prop generator.Property, customTypes *CustomTypeRegistry) bool {
+	// Check if x-nullable handling is enabled
+	if !customTypes.IsXNullableEnabled() {
+		return false
+	}
+
+	if prop.Extensions == nil {
+		return false
+	}
+	if xNullable, ok := prop.Extensions["x-nullable"]; ok {
+		if boolVal, ok := xNullable.(bool); ok {
+			return boolVal
+		}
+	}
+	return false
+}
+
+// propertyToIoTsType converts a property to io-ts type considering x-nullable
+func propertyToIoTsType(prop generator.Property, customTypes *CustomTypeRegistry) string {
+	// Check if property should be nullable due to x-nullable extension
+	nullable := prop.Nullable || hasXNullable(prop, customTypes)
+	return toIoTsType(prop.Type, nullable, customTypes)
+}
+
 // quote wraps a string in single quotes
 func quote(s string) string {
 	return fmt.Sprintf("'%s'", s)
