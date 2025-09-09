@@ -17,13 +17,14 @@ type DTO struct {
 
 // Property represents a field within a DTO.
 type Property struct {
-	Name          string            `json:"name"`
-	Type          IRType            `json:"type"`
-	Description   string            `json:"description"`
-	Nullable      bool              `json:"nullable"`
-	Required      bool              `json:"required"`
-	CustomBranded string            `json:"customBranded,omitempty"`
-	Metadata      map[string]string `json:"metadata,omitempty"`
+	Name          string                 `json:"name"`
+	Type          IRType                 `json:"type"`
+	Description   string                 `json:"description"`
+	Nullable      bool                   `json:"nullable"`
+	Required      bool                   `json:"required"`
+	CustomBranded string                 `json:"customBranded,omitempty"`
+	Metadata      map[string]string      `json:"metadata,omitempty"`
+	Extensions    map[string]interface{} `json:"extensions,omitempty"` // OpenAPI extensions (x-*)
 }
 
 // IRType is an interface for our type representations.

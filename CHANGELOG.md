@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Cross-platform NPM package support with proper binary installation
 - Support for `npx dtoforge` usage without installation
 - Better error handling and cross-platform compatibility in NPM package
+- **OpenAPI Extensions Support**: Added support for `x-nullable` extension to explicitly mark fields as nullable
+  - Currently available for io-ts generator (Zod support coming soon)
+  - Configurable via `extensions.x-nullable.enabled` setting
+  - Allows precise control over nullable fields, even for required properties
 
 ### Changed
 - **BREAKING:** Removed "Codec" suffix from generated TypeScript types (`User` instead of `UserCodec`)
@@ -28,6 +32,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - NPM global installation now works correctly on all platforms
+- Property names with invalid JavaScript identifiers (e.g., `@method`) are now properly quoted in generated TypeScript
+- Single-file generation mode now correctly orders type definitions to avoid "used before declaration" errors
+- Fixed TypeScript compilation errors when generating code from large OpenAPI specifications (1500+ schemas)
 - Binary execution permissions on Unix-like systems
 - Cross-platform path handling in NPM package
 - Package.json binary path consistency

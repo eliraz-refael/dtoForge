@@ -140,6 +140,9 @@ func (g *SingleFileGenerator) templateFuncs() template.FuncMap {
 		"toTSType": func(irType generator.IRType, nullable bool) string {
 			return toTSType(irType, nullable, g.customTypes)
 		},
+		"propertyToIoTsType": func(prop generator.Property) string {
+			return propertyToIoTsType(prop, g.customTypes)
+		},
 		"toCamelCase":          toCamelCase,
 		"toPascalCase":         toPascalCase,
 		"toKebabCase":          toKebabCase,

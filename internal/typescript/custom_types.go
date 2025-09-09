@@ -32,11 +32,19 @@ type CustomTypeMapping struct {
 	ImportStatement string `yaml:"import"`
 }
 
+// ExtensionConfig represents configuration for OpenAPI extensions
+type ExtensionConfig struct {
+	XNullable struct {
+		Enabled bool `yaml:"enabled"`
+	} `yaml:"x-nullable"`
+}
+
 // EnhancedCustomTypeConfig represents the complete YAML configuration structure
 type EnhancedCustomTypeConfig struct {
 	Output      OutputConfig                 `yaml:"output"`
 	CustomTypes map[string]CustomTypeMapping `yaml:"customTypes"`
 	Generation  GenerationConfig             `yaml:"generation"`
+	Extensions  ExtensionConfig              `yaml:"extensions"`
 }
 
 // CustomTypeRegistry holds all custom type mappings and config
@@ -44,6 +52,7 @@ type CustomTypeRegistry struct {
 	mappings   map[string]CustomTypeMapping
 	output     OutputConfig
 	generation GenerationConfig
+	extensions ExtensionConfig
 }
 
 // NewCustomTypeRegistry creates a new registry with default mappings and config
@@ -63,7 +72,11 @@ func NewCustomTypeRegistry() *CustomTypeRegistry {
 			GenerateSchemaNames:    false,
 			UseInterfaces:          true,
 		},
+		extensions: ExtensionConfig{},
 	}
+
+	// Enable x-nullable by default
+	registry.extensions.XNullable.Enabled = true
 
 	registry.addDefaultMappings()
 	return registry
@@ -77,6 +90,11 @@ func (r *CustomTypeRegistry) GetOutputConfig() OutputConfig {
 // GetGenerationConfig returns the generation configuration
 func (r *CustomTypeRegistry) GetGenerationConfig() GenerationConfig {
 	return r.generation
+}
+
+// IsXNullableEnabled returns true if x-nullable extension handling is enabled
+func (r *CustomTypeRegistry) IsXNullableEnabled() bool {
+	return r.extensions.XNullable.Enabled
 }
 
 // IsSingleFileMode returns true if single file output is configured
@@ -201,6 +219,9 @@ func (r *CustomTypeRegistry) LoadFromConfig(configPath string) error {
 	r.generation.GenerateSchemaRegistry = config.Generation.GenerateSchemaRegistry
 	r.generation.GenerateSchemaNames = config.Generation.GenerateSchemaNames
 	r.generation.UseInterfaces = config.Generation.UseInterfaces
+
+	// Load extensions config
+	r.extensions = config.Extensions
 
 	// Register all custom types from config
 	for format, mapping := range config.CustomTypes {

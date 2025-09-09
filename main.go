@@ -228,8 +228,9 @@ func convertSchemaToGeneratorDTO(name string, schema map[string]interface{}) (ge
 
 func convertSchemaToGeneratorProperty(name string, schema map[string]interface{}, required []string) (generator.Property, error) {
 	prop := generator.Property{
-		Name:     name,
-		Metadata: make(map[string]string),
+		Name:       name,
+		Metadata:   make(map[string]string),
+		Extensions: make(map[string]interface{}),
 	}
 
 	// Check if property is required
@@ -246,6 +247,13 @@ func convertSchemaToGeneratorProperty(name string, schema map[string]interface{}
 
 	if nullable, ok := schema["nullable"].(bool); ok {
 		prop.Nullable = nullable
+	}
+
+	// Parse OpenAPI extensions (x-* fields)
+	for key, value := range schema {
+		if strings.HasPrefix(key, "x-") {
+			prop.Extensions[key] = value
+		}
 	}
 
 	// Handle enum within property

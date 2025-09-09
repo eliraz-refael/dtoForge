@@ -218,9 +218,67 @@ generation:
   generateSchemaRegistry: false  # Generate schema registry object (default: false)
   generateSchemaNames: false  # Generate schema names array (default: false)
   useInterfaces: true  # Use interfaces instead of type aliases (default: true)
+
+# OpenAPI extensions support
+extensions:
+  x-nullable:
+    enabled: true  # Enable x-nullable extension support (default: true)
 ```
 
 ## 🔧 Advanced Features
+
+### OpenAPI Extensions Support (x-nullable)
+
+DtoForge supports the `x-nullable` OpenAPI extension to explicitly mark fields as nullable, providing more precise type generation than the standard `nullable` property.
+
+**Note:** Currently supported for io-ts generator only. Zod support coming soon.
+
+#### Usage in OpenAPI Schema:
+```yaml
+components:
+  schemas:
+    User:
+      type: object
+      required: [id, email]
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+          x-nullable: true  # Email is required but can be null
+        phone:
+          type: string
+          x-nullable: false  # Explicitly not nullable (optional)
+        address:
+          type: string  # Regular optional field
+```
+
+#### Generated TypeScript (io-ts):
+```typescript
+export const User = t.intersection([
+  t.type({
+    id: t.string,
+    email: t.union([t.string, t.null]), // Required but nullable
+  }),
+  t.partial({
+    phone: t.string,  // Optional, not nullable
+    address: t.string, // Optional, not nullable
+  })
+])
+```
+
+#### Key Differences:
+- **Standard `nullable`**: Makes a field accept null values
+- **`x-nullable: true`**: Explicitly makes the field nullable, even if required
+- **`x-nullable: false`**: Explicitly prevents null, useful for documentation
+
+#### Configuration:
+You can disable x-nullable processing if needed:
+```yaml
+extensions:
+  x-nullable:
+    enabled: false  # Disable x-nullable extension support
+```
 
 ### Custom Branded Types
 ```typescript

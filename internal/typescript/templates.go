@@ -26,15 +26,15 @@ export const decode{{.DTO.Name}} = (value: unknown) =>
 {{if .HasRequiredFields}}export const {{.DTO.Name}} = t.intersection([
   t.type({
 {{range .DTO.Properties}}{{if .Required}}{{if hasDescription .Description}}    // {{.Description}}
-{{end}}    {{safePropertyName .Name}}: {{toIoTsType .Type .Nullable}},
+{{end}}    {{safePropertyName .Name}}: {{propertyToIoTsType .}},
 {{end}}{{end}}  }),
   t.partial({
 {{range .DTO.Properties}}{{if not .Required}}{{if hasDescription .Description}}    // {{.Description}}
-{{end}}    {{safePropertyName .Name}}: {{toIoTsType .Type .Nullable}},
+{{end}}    {{safePropertyName .Name}}: {{propertyToIoTsType .}},
 {{end}}{{end}}  })
 ]){{else}}export const {{.DTO.Name}} = t.partial({
 {{range .DTO.Properties}}{{if hasDescription .Description}}  // {{.Description}}
-{{end}}  {{safePropertyName .Name}}: {{toIoTsType .Type .Nullable}},
+{{end}}  {{safePropertyName .Name}}: {{propertyToIoTsType .}},
 {{end}}}){{end}}
 
 {{if eq .DTO.Type "enum"}}export type {{.DTO.Name}} = t.TypeOf<typeof {{.DTO.Name}}>;{{/* Enums must always use type, not interface */}}{{else if .UseInterfaces}}export interface {{.DTO.Name}} extends t.TypeOf<typeof {{.DTO.Name}}> {}{{else}}export type {{.DTO.Name}} = t.TypeOf<typeof {{.DTO.Name}}>;{{end}}
@@ -49,7 +49,7 @@ export const decode{{.DTO.Name}} = (value: unknown) =>
 
 {{if .GeneratePartialCodecs}}// Partial codec for updates (all fields optional)
 export const {{.DTO.Name}}Partial = t.partial({
-{{range .DTO.Properties}}  {{safePropertyName .Name}}: {{toIoTsType .Type .Nullable}},
+{{range .DTO.Properties}}  {{safePropertyName .Name}}: {{propertyToIoTsType .}},
 {{end}}});
 
 {{if not $.UseInterfaces}}export type {{.DTO.Name}}Partial = t.TypeOf<typeof {{.DTO.Name}}Partial>;{{end}}{{end}}
@@ -182,22 +182,22 @@ export type {{.DTO.Name}} = t.TypeOf<typeof {{.DTO.Name}}>;{{/* Enums must alway
 {{if .HasRequiredFields}}export const {{.DTO.Name}} = t.intersection([
   t.type({
 {{range .DTO.Properties}}{{if .Required}}{{if hasDescription .Description}}    // {{.Description}}
-{{end}}    {{safePropertyName .Name}}: {{toIoTsType .Type .Nullable}},
+{{end}}    {{safePropertyName .Name}}: {{propertyToIoTsType .}},
 {{end}}{{end}}  }),
   t.partial({
 {{range .DTO.Properties}}{{if not .Required}}{{if hasDescription .Description}}    // {{.Description}}
-{{end}}    {{safePropertyName .Name}}: {{toIoTsType .Type .Nullable}},
+{{end}}    {{safePropertyName .Name}}: {{propertyToIoTsType .}},
 {{end}}{{end}}  })
 ]){{else}}export const {{.DTO.Name}} = t.partial({
 {{range .DTO.Properties}}{{if hasDescription .Description}}  // {{.Description}}
-{{end}}  {{safePropertyName .Name}}: {{toIoTsType .Type .Nullable}},
+{{end}}  {{safePropertyName .Name}}: {{propertyToIoTsType .}},
 {{end}}}){{end}}
 
 {{if eq .DTO.Type "enum"}}export type {{.DTO.Name}} = t.TypeOf<typeof {{.DTO.Name}}>;{{/* Enums must always use type, not interface */}}{{else if $.UseInterfaces}}export interface {{.DTO.Name}} extends t.TypeOf<typeof {{.DTO.Name}}> {}{{else}}export type {{.DTO.Name}} = t.TypeOf<typeof {{.DTO.Name}}>;{{end}}
 
 {{if $.GeneratePartialCodecs}}// Partial codec for updates (all fields optional)
 export const {{.DTO.Name}}Partial = t.partial({
-{{range .DTO.Properties}}  {{safePropertyName .Name}}: {{toIoTsType .Type .Nullable}},
+{{range .DTO.Properties}}  {{safePropertyName .Name}}: {{propertyToIoTsType .}},
 {{end}}});
 
 {{if not $.UseInterfaces}}export type {{.DTO.Name}}Partial = t.TypeOf<typeof {{.DTO.Name}}Partial>;{{end}}
