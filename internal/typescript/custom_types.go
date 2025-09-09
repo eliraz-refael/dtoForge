@@ -32,11 +32,14 @@ type CustomTypeMapping struct {
 	ImportStatement string `yaml:"import"`
 }
 
+// XNullableConfig represents x-nullable configuration
+type XNullableConfig struct {
+	Enabled *bool `yaml:"enabled"` // Pointer to detect if it was set
+}
+
 // ExtensionConfig represents configuration for OpenAPI extensions
 type ExtensionConfig struct {
-	XNullable struct {
-		Enabled bool `yaml:"enabled"`
-	} `yaml:"x-nullable"`
+	XNullable XNullableConfig `yaml:"x-nullable"`
 }
 
 // EnhancedCustomTypeConfig represents the complete YAML configuration structure
@@ -76,7 +79,8 @@ func NewCustomTypeRegistry() *CustomTypeRegistry {
 	}
 
 	// Enable x-nullable by default
-	registry.extensions.XNullable.Enabled = true
+	enabled := true
+	registry.extensions.XNullable.Enabled = &enabled
 
 	registry.addDefaultMappings()
 	return registry
@@ -94,7 +98,11 @@ func (r *CustomTypeRegistry) GetGenerationConfig() GenerationConfig {
 
 // IsXNullableEnabled returns true if x-nullable extension handling is enabled
 func (r *CustomTypeRegistry) IsXNullableEnabled() bool {
-	return r.extensions.XNullable.Enabled
+	// If not set (nil), default to true
+	if r.extensions.XNullable.Enabled == nil {
+		return true
+	}
+	return *r.extensions.XNullable.Enabled
 }
 
 // IsSingleFileMode returns true if single file output is configured
@@ -221,7 +229,10 @@ func (r *CustomTypeRegistry) LoadFromConfig(configPath string) error {
 	r.generation.UseInterfaces = config.Generation.UseInterfaces
 
 	// Load extensions config
-	r.extensions = config.Extensions
+	// Only update if explicitly set in config (pointer is not nil)
+	if config.Extensions.XNullable.Enabled != nil {
+		r.extensions.XNullable.Enabled = config.Extensions.XNullable.Enabled
+	}
 
 	// Register all custom types from config
 	for format, mapping := range config.CustomTypes {

@@ -317,6 +317,29 @@ func convertSchemaToGeneratorProperty(name string, schema map[string]interface{}
 	} else if ref, ok := schema["$ref"].(string); ok {
 		refName := extractRefName(ref)
 		prop.Type = generator.ReferenceType{RefName: refName}
+	} else if oneOf, ok := schema["oneOf"].([]interface{}); ok {
+		// Handle oneOf (union type)
+		var types []generator.IRType
+		for _, item := range oneOf {
+			if itemSchema, ok := item.(map[string]interface{}); ok {
+				// Check if it's a reference
+				if ref, ok := itemSchema["$ref"].(string); ok {
+					refName := extractRefName(ref)
+					types = append(types, generator.ReferenceType{RefName: refName})
+				} else {
+					// Try to parse as inline schema
+					itemProp, err := convertSchemaToGeneratorProperty(name+"Item", itemSchema, []string{})
+					if err == nil {
+						types = append(types, itemProp.Type)
+					}
+				}
+			}
+		}
+		if len(types) > 0 {
+			prop.Type = generator.UnionType{Types: types}
+		} else {
+			prop.Type = generator.PrimitiveType{Name: "unknown"}
+		}
 	} else {
 		prop.Type = generator.PrimitiveType{Name: "unknown"}
 	}

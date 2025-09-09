@@ -106,6 +106,17 @@ func toIoTsType(irType generator.IRType, nullable bool, customTypes *CustomTypeR
 		} else {
 			baseType = "t.unknown" // inline objects need special handling
 		}
+	case generator.UnionType:
+		// Handle oneOf/union types
+		var unionTypes []string
+		for _, unionType := range t.Types {
+			unionTypes = append(unionTypes, toIoTsType(unionType, false, customTypes))
+		}
+		if len(unionTypes) > 0 {
+			baseType = fmt.Sprintf("t.union([%s])", strings.Join(unionTypes, ", "))
+		} else {
+			baseType = "t.unknown"
+		}
 	default:
 		baseType = "t.unknown"
 	}
@@ -158,6 +169,17 @@ func toTSType(irType generator.IRType, nullable bool, customTypes *CustomTypeReg
 			baseType = t.RefName
 		} else {
 			baseType = "Record<string, unknown>"
+		}
+	case generator.UnionType:
+		// Handle oneOf/union types
+		var unionTypes []string
+		for _, unionType := range t.Types {
+			unionTypes = append(unionTypes, toTSType(unionType, false, customTypes))
+		}
+		if len(unionTypes) > 0 {
+			baseType = fmt.Sprintf("(%s)", strings.Join(unionTypes, " | "))
+		} else {
+			baseType = "unknown"
 		}
 	default:
 		baseType = "unknown"
@@ -222,8 +244,14 @@ func hasXNullable(prop generator.Property, customTypes *CustomTypeRegistry) bool
 		return false
 	}
 	if xNullable, ok := prop.Extensions["x-nullable"]; ok {
-		if boolVal, ok := xNullable.(bool); ok {
-			return boolVal
+		// Handle both bool and string representations
+		switch v := xNullable.(type) {
+		case bool:
+			return v
+		case string:
+			return v == "true"
+		default:
+			// Unexpected type, return false
 		}
 	}
 	return false
