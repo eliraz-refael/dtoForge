@@ -217,10 +217,10 @@ func TestTypeScriptGenerator_XNullableWithArrays(t *testing.T) {
 	collectionFile := filepath.Join(tempDir, "collection.ts")
 
 	// Optional array with x-nullable
-	testutils.AssertFileContains(t, collectionFile, "items: t.union([t.array(t.string), t.null])")
+	testutils.AssertFileContains(t, collectionFile, "items: t.union([t.readonlyArray(t.string), t.null])")
 
 	// Required array with x-nullable
-	testutils.AssertFileContains(t, collectionFile, "tags: t.union([t.array(t.string), t.null])")
+	testutils.AssertFileContains(t, collectionFile, "tags: t.union([t.readonlyArray(t.string), t.null])")
 }
 
 func TestTypeScriptGenerator_XNullableWithReferences(t *testing.T) {

@@ -91,7 +91,7 @@ func toIoTsType(irType generator.IRType, nullable bool, customTypes *CustomTypeR
 		}
 	case generator.ArrayType:
 		elementType := toIoTsType(t.ElementType, false, customTypes)
-		baseType = fmt.Sprintf("t.array(%s)", elementType)
+		baseType = fmt.Sprintf("t.readonlyArray(%s)", elementType)
 	case generator.ReferenceType:
 		baseType = t.RefName
 	case generator.EnumType:

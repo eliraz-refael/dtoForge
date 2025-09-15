@@ -80,7 +80,7 @@ func TestTypeScriptGenerator_ToIoTsType(t *testing.T) {
 			name:     "Array of strings",
 			irType:   generator.ArrayType{ElementType: generator.PrimitiveType{Name: "string"}},
 			nullable: false,
-			expected: "t.array(t.string)",
+			expected: "t.readonlyArray(t.string)",
 		},
 		{
 			name:     "Reference type",
