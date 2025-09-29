@@ -1,72 +1,28 @@
-# Enhanced DtoForge Configuration
-# This file allows you to customize code generation behavior
-
-# Output configuration
 output:
-  # Default output folder (can be overridden by -out flag)
-  folder: "./generated"
-
-  # Output mode: "multiple" (one file per DTO) or "single" (all in one file)
-  mode: "multiple"
-
-  # For single file mode, specify the filename
-  singleFileName: "schemas.ts"
-
-# Custom type mappings for OpenAPI formats
+    folder: ./generated
+    mode: multiple
+    singleFileName: schemas.ts
 customTypes:
-  # Date/Time formats with custom branded types
-  date-time:
-    ioTsType: "DateTimeString"
-    typeScriptType: "DateTimeString"
-    import: "import { DateTimeString } from './branded-types';"
-
-  date:
-    ioTsType: "DateString"
-    typeScriptType: "DateString"
-    import: "import { DateString } from './branded-types';"
-
-  # UUID with branded type
-  uuid:
-    ioTsType: "UUID"
-    typeScriptType: "UUID"
-    import: "import { UUID } from './branded-types';"
-
-  # Email with validation
-  email:
-    ioTsType: "EmailString"
-    typeScriptType: "EmailString"
-    import: "import { EmailString } from './branded-types';"
-
-  # URI/URL with validation
-  uri:
-    ioTsType: "URLString"
-    typeScriptType: "URLString"
-    import: "import { URLString } from './branded-types';"
-
-  # Binary data (could be base64 encoded)
-  binary:
-    ioTsType: "Base64String"
-    typeScriptType: "Base64String"
-    import: "import { Base64String } from './branded-types';"
-
-# Generation options
+    date-time:
+        ioTsType: DateTimeString
+        typeScriptType: DateTimeString
+        import: import { DateTimeString } from './branded-types';
+    email:
+        ioTsType: EmailString.codec
+        typeScriptType: EmailString
+        import: import { EmailString } from './branded-types';
+    uuid:
+        ioTsType: UUID.codec
+        typeScriptType: UUID
+        import: import { UUID } from './branded-types';
 generation:
-  # Whether to generate package.json
-  generatePackageJson: true
-
-  # Whether to generate partial codecs for updates
-  generatePartialCodecs: false
-
-  # Whether to generate validation helper functions
-  generateHelpers: false
-
-  # Whether to generate the schemas registry object (all schemas in one object)
-  # Useful for dynamic schema access, but increases file size for large APIs
-  generateSchemaRegistry: false
-
-  # Whether to generate the schemaNames array (list of all schema names)
-  # Useful for runtime introspection, but increases file size for large APIs
-  generateSchemaNames: false
-  
-  # Whether to use interfaces instead of type aliases (interface X extends t.TypeOf<...>)
-  useInterfaces: true
+    generatePackageJson: true
+    generatePartialCodecs: false
+    generateHelpers: false
+    generateSchemaRegistry: false
+    generateSchemaNames: false
+    useInterfaces: true
+    processImplicitObjects: false
+extensions:
+    x-nullable:
+        enabled: null

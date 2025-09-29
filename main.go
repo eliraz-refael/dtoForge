@@ -146,6 +146,30 @@ func readOpenAPISpec(path string) (*OpenAPISpec, error) {
 	return &spec, nil
 }
 
+// preprocessSchemas modifies the OpenAPI spec to add explicit type declarations
+// for schemas that have properties but no explicit type
+func preprocessSchemas(spec *OpenAPISpec, processImplicitObjects bool) {
+	if !processImplicitObjects {
+		return
+	}
+
+	if comp, ok := spec.Components["schemas"]; ok {
+		if schemas, ok := comp.(map[string]interface{}); ok {
+			for name, schemaVal := range schemas {
+				if schema, ok := schemaVal.(map[string]interface{}); ok {
+					// If has properties but no explicit type, add type: object
+					if _, hasProperties := schema["properties"]; hasProperties {
+						if _, hasType := schema["type"]; !hasType {
+							schema["type"] = "object"
+							fmt.Printf("ℹ️  Auto-added type 'object' to schema '%s' (has properties but no explicit type)\n", name)
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
 func convertToGeneratorDTOs(spec *OpenAPISpec) ([]generator.DTO, error) {
 	var dtos []generator.DTO
 
@@ -408,6 +432,21 @@ func main() {
 	if err != nil {
 		fmt.Printf("Error reading OpenAPI spec: %v\n", err)
 		os.Exit(1)
+	}
+
+	// Preprocess schemas if needed (add explicit type declarations for implicit objects)
+	if configFile != "" {
+		// Create a temporary registry just to load the config and get generation settings
+		tempRegistry := typescript.NewCustomTypeRegistry()
+		if err := tempRegistry.LoadFromConfig(configFile); err != nil {
+			fmt.Printf("Warning: Failed to load config file %s for generation settings: %v\n", configFile, err)
+		} else {
+			genConfig := tempRegistry.GetGenerationConfig()
+			if genConfig.ProcessImplicitObjects {
+				fmt.Printf("🔧 Processing schemas with implicit object types enabled\n")
+				preprocessSchemas(spec, true)
+			}
+		}
 	}
 
 	// Convert to generator DTOs
