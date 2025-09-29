@@ -22,6 +22,7 @@ type GenerationConfig struct {
 	GenerateHelpers        bool `yaml:"generateHelpers"`
 	GenerateSchemaRegistry bool `yaml:"generateSchemaRegistry"`
 	GenerateSchemaNames    bool `yaml:"generateSchemaNames"`
+	ProcessImplicitObjects bool `yaml:"processImplicitObjects"` // Process schemas with properties but no explicit type
 }
 
 // CustomTypeMapping defines how to map OpenAPI formats to Zod types
@@ -64,6 +65,7 @@ func NewCustomTypeRegistry() *CustomTypeRegistry {
 			GenerateHelpers:        true,
 			GenerateSchemaRegistry: false,
 			GenerateSchemaNames:    false,
+			ProcessImplicitObjects: false, // Default to false for backward compatibility
 		},
 	}
 

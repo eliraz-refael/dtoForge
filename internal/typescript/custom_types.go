@@ -23,6 +23,7 @@ type GenerationConfig struct {
 	GenerateSchemaRegistry bool `yaml:"generateSchemaRegistry"`
 	GenerateSchemaNames    bool `yaml:"generateSchemaNames"`
 	UseInterfaces          bool `yaml:"useInterfaces"`
+	ProcessImplicitObjects bool `yaml:"processImplicitObjects"` // Process schemas with properties but no explicit type
 }
 
 // CustomTypeMapping defines how to map OpenAPI formats to TypeScript/io-ts types
@@ -74,6 +75,7 @@ func NewCustomTypeRegistry() *CustomTypeRegistry {
 			GenerateSchemaRegistry: false,
 			GenerateSchemaNames:    false,
 			UseInterfaces:          true,
+			ProcessImplicitObjects: false, // Default to false for backward compatibility
 		},
 		extensions: ExtensionConfig{},
 	}
@@ -227,6 +229,7 @@ func (r *CustomTypeRegistry) LoadFromConfig(configPath string) error {
 	r.generation.GenerateSchemaRegistry = config.Generation.GenerateSchemaRegistry
 	r.generation.GenerateSchemaNames = config.Generation.GenerateSchemaNames
 	r.generation.UseInterfaces = config.Generation.UseInterfaces
+	r.generation.ProcessImplicitObjects = config.Generation.ProcessImplicitObjects
 
 	// Load extensions config
 	// Only update if explicitly set in config (pointer is not nil)
@@ -257,6 +260,7 @@ func (r *CustomTypeRegistry) SaveExampleConfig(configPath string) error {
 			GenerateSchemaRegistry: false,
 			GenerateSchemaNames:    false,
 			UseInterfaces:          true,
+			ProcessImplicitObjects: false,
 		},
 		CustomTypes: map[string]CustomTypeMapping{
 			"date-time": {

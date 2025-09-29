@@ -146,14 +146,14 @@ func readOpenAPISpec(path string) (*OpenAPISpec, error) {
 	return &spec, nil
 }
 
-func convertToGeneratorDTOs(spec *OpenAPISpec) ([]generator.DTO, error) {
+func convertToGeneratorDTOs(spec *OpenAPISpec, processImplicitObjects bool) ([]generator.DTO, error) {
 	var dtos []generator.DTO
 
 	if comp, ok := spec.Components["schemas"]; ok {
 		if schemas, ok := comp.(map[string]interface{}); ok {
 			for name, schemaVal := range schemas {
 				if schema, ok := schemaVal.(map[string]interface{}); ok {
-					dto, err := convertSchemaToGeneratorDTO(name, schema)
+					dto, err := convertSchemaToGeneratorDTO(name, schema, processImplicitObjects)
 					if err != nil {
 						return nil, fmt.Errorf("failed to convert schema %s: %w", name, err)
 					}
@@ -166,7 +166,7 @@ func convertToGeneratorDTOs(spec *OpenAPISpec) ([]generator.DTO, error) {
 	return dtos, nil
 }
 
-func convertSchemaToGeneratorDTO(name string, schema map[string]interface{}) (generator.DTO, error) {
+func convertSchemaToGeneratorDTO(name string, schema map[string]interface{}, processImplicitObjects bool) (generator.DTO, error) {
 	dto := generator.DTO{
 		Name:       name,
 		Properties: []generator.Property{},
@@ -199,7 +199,31 @@ func convertSchemaToGeneratorDTO(name string, schema map[string]interface{}) (ge
 	}
 
 	// Process object properties
-	if typ, ok := schema["type"].(string); ok && typ == "object" {
+	// Check if it's explicitly an object OR if it has properties and processImplicitObjects is enabled
+	isExplicitObject := func() bool {
+		if typ, ok := schema["type"].(string); ok && typ == "object" {
+			return true
+		}
+		return false
+	}()
+
+	isImplicitObject := func() bool {
+		if processImplicitObjects {
+			// Only treat as implicit object if it has properties but no type (or type is not array/enum)
+			if _, hasProperties := schema["properties"]; hasProperties {
+				if typ, hasType := schema["type"].(string); !hasType || (typ != "array" && typ != "string" && typ != "number" && typ != "integer" && typ != "boolean") {
+					// Info: notify user about implicit object processing
+					if !hasType {
+						fmt.Printf("ℹ️  Processing schema '%s' as object (has properties but no explicit type)\n", name)
+					}
+					return true
+				}
+			}
+		}
+		return false
+	}()
+
+	if isExplicitObject || isImplicitObject {
 		dto.Type = "object"
 		if props, ok := schema["properties"].(map[string]interface{}); ok {
 			// IMPORTANT: Sort property names for consistent ordering
@@ -213,7 +237,7 @@ func convertSchemaToGeneratorDTO(name string, schema map[string]interface{}) (ge
 			for _, propName := range propNames {
 				propVal := props[propName]
 				if propSchema, ok := propVal.(map[string]interface{}); ok {
-					property, err := convertSchemaToGeneratorProperty(propName, propSchema, dto.Required)
+					property, err := convertSchemaToGeneratorProperty(propName, propSchema, dto.Required, processImplicitObjects)
 					if err != nil {
 						return dto, fmt.Errorf("failed to convert property %s: %w", propName, err)
 					}
@@ -226,7 +250,7 @@ func convertSchemaToGeneratorDTO(name string, schema map[string]interface{}) (ge
 	return dto, nil
 }
 
-func convertSchemaToGeneratorProperty(name string, schema map[string]interface{}, required []string) (generator.Property, error) {
+func convertSchemaToGeneratorProperty(name string, schema map[string]interface{}, required []string, processImplicitObjects bool) (generator.Property, error) {
 	prop := generator.Property{
 		Name:       name,
 		Metadata:   make(map[string]string),
@@ -293,7 +317,7 @@ func convertSchemaToGeneratorProperty(name string, schema map[string]interface{}
 			prop.Type = generator.PrimitiveType{Name: "boolean"}
 		case "array":
 			if items, ok := schema["items"].(map[string]interface{}); ok {
-				itemProp, err := convertSchemaToGeneratorProperty(name+"Item", items, []string{})
+				itemProp, err := convertSchemaToGeneratorProperty(name+"Item", items, []string{}, processImplicitObjects)
 				if err != nil {
 					return prop, err
 				}
@@ -305,7 +329,7 @@ func convertSchemaToGeneratorProperty(name string, schema map[string]interface{}
 				prop.Type = generator.ReferenceType{RefName: refName}
 			} else {
 				// Inline object - create a nested DTO
-				nestedDTO, err := convertSchemaToGeneratorDTO(name, schema)
+				nestedDTO, err := convertSchemaToGeneratorDTO(name, schema, processImplicitObjects)
 				if err != nil {
 					return prop, err
 				}
@@ -328,7 +352,7 @@ func convertSchemaToGeneratorProperty(name string, schema map[string]interface{}
 					types = append(types, generator.ReferenceType{RefName: refName})
 				} else {
 					// Try to parse as inline schema
-					itemProp, err := convertSchemaToGeneratorProperty(name+"Item", itemSchema, []string{})
+					itemProp, err := convertSchemaToGeneratorProperty(name+"Item", itemSchema, []string{}, processImplicitObjects)
 					if err == nil {
 						types = append(types, itemProp.Type)
 					}
@@ -410,8 +434,24 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Get generation config to determine if we should process implicit objects
+	var processImplicitObjects bool
+	if configFile != "" {
+		// Create a temporary registry just to load the config and get generation settings
+		tempRegistry := typescript.NewCustomTypeRegistry()
+		if err := tempRegistry.LoadFromConfig(configFile); err != nil {
+			fmt.Printf("Warning: Failed to load config file %s for generation settings: %v\n", configFile, err)
+		} else {
+			genConfig := tempRegistry.GetGenerationConfig()
+			processImplicitObjects = genConfig.ProcessImplicitObjects
+			if processImplicitObjects {
+				fmt.Printf("🔧 Processing schemas with implicit object types enabled\n")
+			}
+		}
+	}
+
 	// Convert to generator DTOs
-	dtos, err := convertToGeneratorDTOs(spec)
+	dtos, err := convertToGeneratorDTOs(spec, processImplicitObjects)
 	if err != nil {
 		fmt.Printf("Error converting spec to DTOs: %v\n", err)
 		os.Exit(1)
