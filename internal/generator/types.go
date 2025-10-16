@@ -52,6 +52,7 @@ type EnumType struct {
 	Name           string   `json:"name"`
 	UnderlyingType string   `json:"underlyingType"`
 	Values         []string `json:"values"`
+	ContainsNull   bool     `json:"containsNull,omitempty"`
 }
 
 func (e EnumType) TypeName() string { return e.Name }

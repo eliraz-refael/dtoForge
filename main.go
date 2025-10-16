@@ -283,13 +283,16 @@ func convertSchemaToGeneratorProperty(name string, schema map[string]interface{}
 	// Handle enum within property
 	if enumVals, ok := schema["enum"].([]interface{}); ok {
 		var values []string
+		hasNull := false
 		underlyingType := "string"
 		if typ, ok := schema["type"].(string); ok {
 			underlyingType = typ
 		}
 
 		for _, val := range enumVals {
-			if strVal, ok := val.(string); ok {
+			if val == nil {
+				hasNull = true
+			} else if strVal, ok := val.(string); ok {
 				values = append(values, strVal)
 			}
 		}
@@ -298,6 +301,7 @@ func convertSchemaToGeneratorProperty(name string, schema map[string]interface{}
 			Name:           fmt.Sprintf("%sEnum", strings.Title(name)),
 			UnderlyingType: underlyingType,
 			Values:         values,
+			ContainsNull:   hasNull,
 		}
 		return prop, nil
 	}
