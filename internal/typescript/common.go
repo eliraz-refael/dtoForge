@@ -122,6 +122,9 @@ func toIoTsType(irType generator.IRType, nullable bool, customTypes *CustomTypeR
 		}
 	case generator.NullType:
 		baseType = "t.null"
+	case generator.MapType:
+		valueType := toIoTsType(t.ValueType, false, customTypes)
+		baseType = fmt.Sprintf("t.record(t.string, %s)", valueType)
 	case generator.UnionType:
 		// Handle oneOf/union types
 		var unionTypes []string
@@ -191,6 +194,9 @@ func toTSType(irType generator.IRType, nullable bool, customTypes *CustomTypeReg
 		} else {
 			baseType = "Record<string, unknown>"
 		}
+	case generator.MapType:
+		valueType := toTSType(t.ValueType, false, customTypes)
+		baseType = fmt.Sprintf("Record<string, %s>", valueType)
 	case generator.UnionType:
 		// Handle oneOf/union types
 		var unionTypes []string
