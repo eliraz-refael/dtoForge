@@ -1,6 +1,6 @@
 output:
     folder: ./generated
-    mode: multiple
+    mode: single
     singleFileName: schemas.ts
 customTypes:
     date-time:

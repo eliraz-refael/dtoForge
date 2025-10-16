@@ -278,6 +278,9 @@ func (g *ZodGenerator) toZodType(irType generator.IRType, nullable bool, optiona
 		}
 	case generator.NullType:
 		baseType = "z.null()"
+	case generator.MapType:
+		valueType := g.toZodType(t.ValueType, false, false)
+		baseType = fmt.Sprintf("z.record(z.string(), %s)", valueType)
 	case generator.UnionType:
 		// Handle oneOf/union types
 		var unionTypes []string

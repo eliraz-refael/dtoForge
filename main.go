@@ -331,6 +331,13 @@ func convertSchemaToGeneratorProperty(name string, schema map[string]interface{}
 			if ref, ok := schema["$ref"].(string); ok {
 				refName := extractRefName(ref)
 				prop.Type = generator.ReferenceType{RefName: refName}
+			} else if additionalProps, ok := schema["additionalProperties"].(map[string]interface{}); ok {
+				// Object with additionalProperties - it's a map/record
+				valueProp, err := convertSchemaToGeneratorProperty(name+"Value", additionalProps, []string{})
+				if err != nil {
+					return prop, err
+				}
+				prop.Type = generator.MapType{ValueType: valueProp.Type}
 			} else {
 				// Inline object - create a nested DTO
 				nestedDTO, err := convertSchemaToGeneratorDTO(name, schema)

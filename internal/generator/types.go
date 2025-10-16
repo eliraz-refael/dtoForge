@@ -74,3 +74,12 @@ func (u UnionType) TypeName() string {
 	}
 	return fmt.Sprintf("(%s)", strings.Join(typeNames, " | "))
 }
+
+// MapType represents object with additionalProperties (key-value mapping)
+type MapType struct {
+	ValueType IRType `json:"valueType"`
+}
+
+func (m MapType) TypeName() string {
+	return fmt.Sprintf("Record<string, %s>", m.ValueType.TypeName())
+}
