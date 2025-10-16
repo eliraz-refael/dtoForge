@@ -354,6 +354,9 @@ func convertSchemaToGeneratorProperty(name string, schema map[string]interface{}
 				if ref, ok := itemSchema["$ref"].(string); ok {
 					refName := extractRefName(ref)
 					types = append(types, generator.ReferenceType{RefName: refName})
+				} else if typ, ok := itemSchema["type"].(string); ok && typ == "null" {
+					// Handle null type in oneOf
+					types = append(types, generator.NullType{})
 				} else {
 					// Try to parse as inline schema
 					itemProp, err := convertSchemaToGeneratorProperty(name+"Item", itemSchema, []string{})

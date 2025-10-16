@@ -276,6 +276,19 @@ func (g *ZodGenerator) toZodType(irType generator.IRType, nullable bool, optiona
 		} else {
 			baseType = "z.record(z.unknown())" // inline objects
 		}
+	case generator.NullType:
+		baseType = "z.null()"
+	case generator.UnionType:
+		// Handle oneOf/union types
+		var unionTypes []string
+		for _, unionType := range t.Types {
+			unionTypes = append(unionTypes, g.toZodType(unionType, false, false))
+		}
+		if len(unionTypes) > 0 {
+			baseType = fmt.Sprintf("z.union([%s])", strings.Join(unionTypes, ", "))
+		} else {
+			baseType = "z.unknown()"
+		}
 	default:
 		baseType = "z.unknown()"
 	}

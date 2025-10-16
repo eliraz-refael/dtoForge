@@ -120,6 +120,8 @@ func toIoTsType(irType generator.IRType, nullable bool, customTypes *CustomTypeR
 		} else {
 			baseType = "t.unknown" // inline objects need special handling
 		}
+	case generator.NullType:
+		baseType = "t.null"
 	case generator.UnionType:
 		// Handle oneOf/union types
 		var unionTypes []string
