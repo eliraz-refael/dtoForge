@@ -95,11 +95,25 @@ func toIoTsType(irType generator.IRType, nullable bool, customTypes *CustomTypeR
 	case generator.ReferenceType:
 		baseType = t.RefName
 	case generator.EnumType:
-		values := make([]string, len(t.Values))
-		for i, v := range t.Values {
-			values[i] = fmt.Sprintf("'%s': null", v)
+		var enumType string
+		if len(t.Values) == 1 {
+			// Single value: use t.literal instead of t.keyof
+			enumType = fmt.Sprintf("t.literal('%s')", t.Values[0])
+		} else {
+			// Multiple values: use t.keyof
+			values := make([]string, len(t.Values))
+			for i, v := range t.Values {
+				values[i] = fmt.Sprintf("'%s': null", v)
+			}
+			enumType = fmt.Sprintf("t.keyof({%s})", strings.Join(values, ", "))
 		}
-		baseType = fmt.Sprintf("t.keyof({%s})", strings.Join(values, ", "))
+
+		// Handle null union
+		if t.ContainsNull {
+			baseType = fmt.Sprintf("t.union([%s, t.null])", enumType)
+		} else {
+			baseType = enumType
+		}
 	case generator.ObjectType:
 		if t.RefName != "" {
 			baseType = t.RefName
@@ -121,7 +135,12 @@ func toIoTsType(irType generator.IRType, nullable bool, customTypes *CustomTypeR
 		baseType = "t.unknown"
 	}
 
+	// Don't double-wrap if enum already handles null
 	if nullable {
+		if enum, ok := irType.(generator.EnumType); ok && enum.ContainsNull {
+			// Enum already handles null, don't wrap again
+			return baseType
+		}
 		return fmt.Sprintf("t.union([%s, t.null])", baseType)
 	}
 
