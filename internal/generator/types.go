@@ -57,6 +57,11 @@ type EnumType struct {
 
 func (e EnumType) TypeName() string { return e.Name }
 
+// NullType represents a null type
+type NullType struct{}
+
+func (n NullType) TypeName() string { return "null" }
+
 // UnionType represents oneOf/anyOf schemas
 type UnionType struct {
 	Types []IRType `json:"types"`
