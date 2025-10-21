@@ -3,7 +3,7 @@
   "version": "${VERSION}",
   "description": "OpenAPI to TypeScript Schema Generator with Runtime Validation",
   "bin": {
-    "dtoforge": "./bin/dtoforge"
+    "dtoforge": "./bin-wrapper.js"
   },
   "scripts": {
     "postinstall": "node install.js"
@@ -11,6 +11,7 @@
   "files": [
     "README.md",
     "install.js",
+    "bin-wrapper.js",
     "bin/",
     "binaries/"
   ],

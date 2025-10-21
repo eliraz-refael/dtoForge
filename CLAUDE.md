@@ -41,10 +41,14 @@ go build -o dtoForge main.go
 ./dtoForge -example-config
 ```
 
-### NPM Publishing (from CI/CD)
+### NPM Package Testing and Publishing
 ```bash
-# The npm-publish workflow handles versioning and publishing
+# Test the npm package locally BEFORE publishing
+./scripts/npm/test-package.sh
+
+# The npm-publish workflow handles versioning and publishing (from CI/CD)
 # Uses scripts/npm/package.json.template to generate package.json
+# Downloads binaries from GitHub releases (names MUST match release.yaml output)
 ```
 
 ## Architecture
