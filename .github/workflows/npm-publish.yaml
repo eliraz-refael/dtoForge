@@ -58,12 +58,12 @@ jobs:
 
         # Download all platform binaries
         platforms=(
-          "dtoForge-linux-amd64:linux-x64"
-          "dtoForge-linux-arm64:linux-arm64"
-          "dtoForge-darwin-amd64:darwin-x64"
-          "dtoForge-darwin-arm64:darwin-arm64"
-          "dtoForge-windows-amd64.exe:win32-x64.exe"
-          "dtoForge-windows-arm64.exe:win32-arm64.exe"
+          "dtoforge-linux-amd64:linux-x64"
+          "dtoforge-linux-arm64:linux-arm64"
+          "dtoforge-darwin-amd64:darwin-x64"
+          "dtoforge-darwin-arm64:darwin-arm64"
+          "dtoforge-windows-amd64.exe:win32-x64.exe"
+          "dtoforge-windows-arm64.exe:win32-arm64.exe"
         )
 
         for platform in "${platforms[@]}"; do
@@ -85,8 +85,9 @@ jobs:
       run: |
         cd npm-package
 
-        # Copy the install script we already created
+        # Copy the install script and bin wrapper
         cp ../scripts/npm/install.js .
+        cp ../scripts/npm/bin-wrapper.js .
 
         # Copy the npm-specific README
         cp ../README.md .
