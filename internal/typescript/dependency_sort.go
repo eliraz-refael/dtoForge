@@ -50,8 +50,16 @@ func extractTypeRefs(irType generator.IRType, deps *[]string, seen map[string]bo
 			seen[t.RefName] = true
 		}
 		// Note: We could also check Properties if ObjectType has them
+	case generator.UnionType:
+		// Union type (oneOf/anyOf) - check all types in the union
+		for _, unionMember := range t.Types {
+			extractTypeRefs(unionMember, deps, seen)
+		}
+	case generator.MapType:
+		// Map type (Record<string, T>) - check the value type
+		extractTypeRefs(t.ValueType, deps, seen)
 	}
-	// PrimitiveType and EnumType don't have dependencies
+	// PrimitiveType, EnumType, and NullType don't have dependencies
 }
 
 // topologicalSort performs Kahn's algorithm to sort DTOs by dependencies
