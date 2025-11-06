@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -43,12 +44,58 @@ type ExtensionConfig struct {
 	XNullable XNullableConfig `yaml:"x-nullable"`
 }
 
+// ExcludeConfig represents schema exclusion rules
+type ExcludeConfig struct {
+	Exact      []string `yaml:"exact"`
+	StartsWith []string `yaml:"startsWith"`
+	EndsWith   []string `yaml:"endsWith"`
+	Contains   []string `yaml:"contains"`
+}
+
+// ShouldExclude checks if a schema name matches any exclusion rule
+func (e *ExcludeConfig) ShouldExclude(schemaName string) bool {
+	if e == nil {
+		return false
+	}
+
+	// Check exact matches
+	for _, exact := range e.Exact {
+		if schemaName == exact {
+			return true
+		}
+	}
+
+	// Check startsWith
+	for _, prefix := range e.StartsWith {
+		if strings.HasPrefix(schemaName, prefix) {
+			return true
+		}
+	}
+
+	// Check endsWith
+	for _, suffix := range e.EndsWith {
+		if strings.HasSuffix(schemaName, suffix) {
+			return true
+		}
+	}
+
+	// Check contains
+	for _, substr := range e.Contains {
+		if strings.Contains(schemaName, substr) {
+			return true
+		}
+	}
+
+	return false
+}
+
 // EnhancedCustomTypeConfig represents the complete YAML configuration structure
 type EnhancedCustomTypeConfig struct {
 	Output      OutputConfig                 `yaml:"output"`
 	CustomTypes map[string]CustomTypeMapping `yaml:"customTypes"`
 	Generation  GenerationConfig             `yaml:"generation"`
 	Extensions  ExtensionConfig              `yaml:"extensions"`
+	Exclude     *ExcludeConfig               `yaml:"exclude,omitempty"`
 }
 
 // CustomTypeRegistry holds all custom type mappings and config
@@ -57,6 +104,7 @@ type CustomTypeRegistry struct {
 	output     OutputConfig
 	generation GenerationConfig
 	extensions ExtensionConfig
+	exclude    *ExcludeConfig
 }
 
 // NewCustomTypeRegistry creates a new registry with default mappings and config
@@ -118,6 +166,11 @@ func (r *CustomTypeRegistry) GetSingleFileName() string {
 		return "schemas.ts"
 	}
 	return r.output.SingleFileName
+}
+
+// GetExcludeConfig returns the exclude configuration
+func (r *CustomTypeRegistry) GetExcludeConfig() *ExcludeConfig {
+	return r.exclude
 }
 
 // addDefaultMappings adds the built-in format mappings
@@ -235,6 +288,11 @@ func (r *CustomTypeRegistry) LoadFromConfig(configPath string) error {
 	// Only update if explicitly set in config (pointer is not nil)
 	if config.Extensions.XNullable.Enabled != nil {
 		r.extensions.XNullable.Enabled = config.Extensions.XNullable.Enabled
+	}
+
+	// Load exclude config if provided
+	if config.Exclude != nil {
+		r.exclude = config.Exclude
 	}
 
 	// Register all custom types from config

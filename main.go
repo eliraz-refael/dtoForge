@@ -130,6 +130,30 @@ func generateExampleConfig() error {
 	return registry.SaveExampleConfig("dtoforge.config.yaml")
 }
 
+// filterDTOs applies exclusion rules to DTOs based on config
+func filterDTOs(dtos []generator.DTO, excludeConfig *typescript.ExcludeConfig) []generator.DTO {
+	if excludeConfig == nil {
+		return dtos
+	}
+
+	var filtered []generator.DTO
+	var excluded []string
+
+	for _, dto := range dtos {
+		if excludeConfig.ShouldExclude(dto.Name) {
+			excluded = append(excluded, dto.Name)
+		} else {
+			filtered = append(filtered, dto)
+		}
+	}
+
+	if len(excluded) > 0 {
+		fmt.Printf("📝 Excluded %d schemas: %v\n", len(excluded), excluded)
+	}
+
+	return filtered
+}
+
 // ... rest of the functions remain the same (readOpenAPISpec, convertToGeneratorDTOs, etc.)
 
 func readOpenAPISpec(path string) (*OpenAPISpec, error) {
@@ -476,6 +500,22 @@ func main() {
 	}
 
 	fmt.Printf("✅ Successfully parsed %d schemas from OpenAPI spec\n", len(dtos))
+
+	// Apply exclusion filters if configured
+	if configFile != "" {
+		tempRegistry := typescript.NewCustomTypeRegistry()
+		if err := tempRegistry.LoadFromConfig(configFile); err != nil {
+			fmt.Printf("Warning: Failed to load config file %s for exclusion filters: %v\n", configFile, err)
+		} else {
+			excludeConfig := tempRegistry.GetExcludeConfig()
+			dtos = filterDTOs(dtos, excludeConfig)
+
+			if len(dtos) == 0 {
+				fmt.Println("⚠️  Warning: All schemas were excluded by filters")
+				os.Exit(0)
+			}
+		}
+	}
 
 	// Generate code
 	genConfig := generator.Config{
