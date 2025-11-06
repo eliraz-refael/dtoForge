@@ -97,12 +97,48 @@ The config file (`dtoforge.config.yaml`) supports:
 - Output folder and mode (single/multiple files)
 - Custom type mappings for OpenAPI formats
 - Generation options (package.json, partial codecs, helpers)
+- Schema exclusion filters
 
 Custom types define:
 - `ioTsType`: Type name for io-ts generator
-- `zodType`: Type expression for Zod generator  
+- `zodType`: Type expression for Zod generator
 - `typeScriptType`: TypeScript type annotation
 - `import`: Required import statement
+
+### Schema Exclusion
+
+The `exclude` section allows filtering out unwanted schemas using multiple matching strategies:
+
+```yaml
+exclude:
+  # Exact schema name matches
+  exact:
+    - "TriggerMetadata"
+    - "InternalDebugData"
+
+  # Schemas starting with prefix
+  startsWith:
+    - "Internal"
+    - "Debug"
+    - "Test"
+
+  # Schemas ending with suffix
+  endsWith:
+    - "Temp"
+    - "Draft"
+
+  # Schemas containing substring
+  contains:
+    - "Private"
+    - "Legacy"
+```
+
+**Matching Rules:**
+- All matching is case-sensitive
+- Rules are applied in order: exact → startsWith → endsWith → contains
+- If any rule matches, the schema is excluded
+- Excluded schemas do not appear in generated output
+- If an excluded schema is referenced by an included schema, TypeScript may report errors (user's responsibility to handle)
 
 ## Important Implementation Details
 
