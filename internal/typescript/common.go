@@ -67,6 +67,7 @@ func isJSReservedWord(name string) bool {
 // toIoTsType converts an IRType to io-ts codec using custom type mappings
 func toIoTsType(irType generator.IRType, nullable bool, customTypes *CustomTypeRegistry) string {
 	var baseType string
+	defaultUnknown := customTypes.GetDefaultUnknownType()
 
 	switch t := irType.(type) {
 	case generator.PrimitiveType:
@@ -87,7 +88,7 @@ func toIoTsType(irType generator.IRType, nullable bool, customTypes *CustomTypeR
 		case "boolean":
 			baseType = "t.boolean"
 		default:
-			baseType = "t.unknown"
+			baseType = defaultUnknown
 		}
 	case generator.ArrayType:
 		elementType := toIoTsType(t.ElementType, false, customTypes)
@@ -118,7 +119,7 @@ func toIoTsType(irType generator.IRType, nullable bool, customTypes *CustomTypeR
 		if t.RefName != "" {
 			baseType = t.RefName
 		} else {
-			baseType = "t.unknown" // inline objects need special handling
+			baseType = defaultUnknown // inline objects need special handling
 		}
 	case generator.NullType:
 		baseType = "t.null"
@@ -134,10 +135,10 @@ func toIoTsType(irType generator.IRType, nullable bool, customTypes *CustomTypeR
 		if len(unionTypes) > 0 {
 			baseType = fmt.Sprintf("t.union([%s])", strings.Join(unionTypes, ", "))
 		} else {
-			baseType = "t.unknown"
+			baseType = defaultUnknown
 		}
 	default:
-		baseType = "t.unknown"
+		baseType = defaultUnknown
 	}
 
 	// Don't double-wrap if enum already handles null
@@ -155,6 +156,9 @@ func toIoTsType(irType generator.IRType, nullable bool, customTypes *CustomTypeR
 // toTSType converts an IRType to TypeScript type using custom type mappings
 func toTSType(irType generator.IRType, nullable bool, customTypes *CustomTypeRegistry) string {
 	var baseType string
+	// For TypeScript types, extract the base type from io-ts format (e.g., "t.unknownRecord" -> "unknown")
+	// For now, we keep "unknown" as the TS default since it's the standard TypeScript type
+	defaultUnknown := "unknown"
 
 	switch t := irType.(type) {
 	case generator.PrimitiveType:
@@ -175,7 +179,7 @@ func toTSType(irType generator.IRType, nullable bool, customTypes *CustomTypeReg
 		case "boolean":
 			baseType = "boolean"
 		default:
-			baseType = "unknown"
+			baseType = defaultUnknown
 		}
 	case generator.ArrayType:
 		elementType := toTSType(t.ElementType, false, customTypes)
@@ -206,10 +210,10 @@ func toTSType(irType generator.IRType, nullable bool, customTypes *CustomTypeReg
 		if len(unionTypes) > 0 {
 			baseType = fmt.Sprintf("(%s)", strings.Join(unionTypes, " | "))
 		} else {
-			baseType = "unknown"
+			baseType = defaultUnknown
 		}
 	default:
-		baseType = "unknown"
+		baseType = defaultUnknown
 	}
 
 	if nullable {
