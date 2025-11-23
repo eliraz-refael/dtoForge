@@ -18,13 +18,14 @@ type OutputConfig struct {
 
 // GenerationConfig defines what to generate
 type GenerationConfig struct {
-	GeneratePackageJson    bool `yaml:"generatePackageJson"`
-	GeneratePartialCodecs  bool `yaml:"generatePartialCodecs"`
-	GenerateHelpers        bool `yaml:"generateHelpers"`
-	GenerateSchemaRegistry bool `yaml:"generateSchemaRegistry"`
-	GenerateSchemaNames    bool `yaml:"generateSchemaNames"`
-	UseInterfaces          bool `yaml:"useInterfaces"`
-	ProcessImplicitObjects bool `yaml:"processImplicitObjects"` // Process schemas with properties but no explicit type
+	GeneratePackageJson    bool   `yaml:"generatePackageJson"`
+	GeneratePartialCodecs  bool   `yaml:"generatePartialCodecs"`
+	GenerateHelpers        bool   `yaml:"generateHelpers"`
+	GenerateSchemaRegistry bool   `yaml:"generateSchemaRegistry"`
+	GenerateSchemaNames    bool   `yaml:"generateSchemaNames"`
+	UseInterfaces          bool   `yaml:"useInterfaces"`
+	ProcessImplicitObjects bool   `yaml:"processImplicitObjects"` // Process schemas with properties but no explicit type
+	DefaultUnknownType     string `yaml:"defaultUnknownType"`     // Custom type for unknown properties (defaults to "t.unknown")
 }
 
 // CustomTypeMapping defines how to map OpenAPI formats to TypeScript/io-ts types
@@ -144,6 +145,14 @@ func (r *CustomTypeRegistry) GetOutputConfig() OutputConfig {
 // GetGenerationConfig returns the generation configuration
 func (r *CustomTypeRegistry) GetGenerationConfig() GenerationConfig {
 	return r.generation
+}
+
+// GetDefaultUnknownType returns the configured default unknown type, or "t.unknown" if not set
+func (r *CustomTypeRegistry) GetDefaultUnknownType() string {
+	if r.generation.DefaultUnknownType == "" {
+		return "t.unknown"
+	}
+	return r.generation.DefaultUnknownType
 }
 
 // IsXNullableEnabled returns true if x-nullable extension handling is enabled
@@ -283,6 +292,7 @@ func (r *CustomTypeRegistry) LoadFromConfig(configPath string) error {
 	r.generation.GenerateSchemaNames = config.Generation.GenerateSchemaNames
 	r.generation.UseInterfaces = config.Generation.UseInterfaces
 	r.generation.ProcessImplicitObjects = config.Generation.ProcessImplicitObjects
+	r.generation.DefaultUnknownType = config.Generation.DefaultUnknownType
 
 	// Load extensions config
 	// Only update if explicitly set in config (pointer is not nil)
@@ -319,6 +329,7 @@ func (r *CustomTypeRegistry) SaveExampleConfig(configPath string) error {
 			GenerateSchemaNames:    false,
 			UseInterfaces:          true,
 			ProcessImplicitObjects: false,
+			DefaultUnknownType:     "", // Empty means "t.unknown" (default). Set to "t.unknownRecord" or other io-ts type as needed
 		},
 		CustomTypes: map[string]CustomTypeMapping{
 			"date-time": {

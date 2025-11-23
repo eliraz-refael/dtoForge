@@ -218,14 +218,140 @@ generation:
   generateSchemaRegistry: false  # Generate schema registry object (default: false)
   generateSchemaNames: false  # Generate schema names array (default: false)
   useInterfaces: true  # Use interfaces instead of type aliases (default: true)
+  defaultUnknownType: "t.unknown"  # Default io-ts type for unknown schemas (default: "t.unknown")
 
 # OpenAPI extensions support
 extensions:
   x-nullable:
     enabled: true  # Enable x-nullable extension support (default: true)
+
+# Schema exclusion rules (optional)
+exclude:
+  exact:
+    - "InternalSchema"  # Exclude specific schema by exact name
+  startsWith:
+    - "Debug"  # Exclude schemas starting with "Debug"
+  endsWith:
+    - "Internal"  # Exclude schemas ending with "Internal"
+  contains:
+    - "Test"  # Exclude schemas containing "Test"
 ```
 
 ## 🔧 Advanced Features
+
+### Schema Exclusion Rules
+
+DtoForge allows you to exclude specific schemas from generation using flexible matching rules. This is useful when your OpenAPI spec contains schemas that you don't want to generate (internal types, test schemas, deprecated types, etc.).
+
+#### Configuration:
+```yaml
+exclude:
+  exact:
+    - "InternalSchema"
+    - "DeprecatedUser"
+  startsWith:
+    - "Debug"
+    - "_"
+  endsWith:
+    - "Internal"
+    - "Request"
+  contains:
+    - "Test"
+    - "Mock"
+```
+
+#### Matching Rules:
+
+| Rule | Description | Example Pattern | Matches |
+|------|-------------|-----------------|---------|
+| `exact` | Exact name match | `"InternalSchema"` | `InternalSchema` only |
+| `startsWith` | Prefix match | `"Debug"` | `DebugUser`, `DebugConfig` |
+| `endsWith` | Suffix match | `"Internal"` | `UserInternal`, `ConfigInternal` |
+| `contains` | Substring match | `"Test"` | `TestUser`, `UserTest`, `MyTestData` |
+
+#### Example Use Cases:
+
+**Exclude internal/private schemas:**
+```yaml
+exclude:
+  endsWith:
+    - "Internal"
+    - "Private"
+```
+
+**Exclude test and mock schemas:**
+```yaml
+exclude:
+  contains:
+    - "Test"
+    - "Mock"
+    - "Stub"
+```
+
+**Exclude specific legacy schemas:**
+```yaml
+exclude:
+  exact:
+    - "LegacyUser"
+    - "DeprecatedOrder"
+  startsWith:
+    - "V1_"  # Old API version prefixes
+```
+
+When schemas are excluded, DtoForge will log them:
+```
+📝 Excluded 3 schemas: [DebugConfig, TestUser, InternalData]
+```
+
+---
+
+### Custom Default Unknown Type
+
+When DtoForge encounters a property without a recognized type, it generates `t.unknown` by default. You can customize this behavior using the `defaultUnknownType` configuration option.
+
+#### Configuration:
+```yaml
+generation:
+  defaultUnknownType: "t.unknownRecord"  # Use t.unknownRecord instead of t.unknown
+```
+
+#### Common Values:
+
+| Value | Description | Use Case |
+|-------|-------------|----------|
+| `t.unknown` | Any value (default) | General purpose, most flexible |
+| `t.unknownRecord` | Object with unknown values | When you expect objects but don't know the shape |
+| `t.record(t.string, t.unknown)` | String-keyed record | Explicit record type |
+
+#### Example:
+
+**OpenAPI Schema:**
+```yaml
+components:
+  schemas:
+    Config:
+      type: object
+      properties:
+        settings:
+          description: Dynamic settings object
+          # No type specified
+```
+
+**With default (`t.unknown`):**
+```typescript
+export const Config = t.partial({
+  settings: t.unknown,
+})
+```
+
+**With `defaultUnknownType: "t.unknownRecord"`:**
+```typescript
+export const Config = t.partial({
+  settings: t.unknownRecord,
+})
+```
+
+---
 
 ### OpenAPI Extensions Support (x-nullable)
 
