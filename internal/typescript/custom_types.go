@@ -24,6 +24,7 @@ type GenerationConfig struct {
 	GenerateSchemaRegistry bool   `yaml:"generateSchemaRegistry"`
 	GenerateSchemaNames    bool   `yaml:"generateSchemaNames"`
 	UseInterfaces          bool   `yaml:"useInterfaces"`
+	DeduplicateInterfaces  bool   `yaml:"deduplicateInterfaces"`  // Only declare interfaces once at the top (no duplicate after each DTO)
 	ProcessImplicitObjects bool   `yaml:"processImplicitObjects"` // Process schemas with properties but no explicit type
 	DefaultUnknownType     string `yaml:"defaultUnknownType"`     // Custom type for unknown properties (defaults to "t.unknown")
 }
@@ -124,6 +125,7 @@ func NewCustomTypeRegistry() *CustomTypeRegistry {
 			GenerateSchemaRegistry: false,
 			GenerateSchemaNames:    false,
 			UseInterfaces:          true,
+			DeduplicateInterfaces:  true,  // Default to true to avoid duplicate interface declarations
 			ProcessImplicitObjects: false, // Default to false for backward compatibility
 		},
 		extensions: ExtensionConfig{},
@@ -291,6 +293,7 @@ func (r *CustomTypeRegistry) LoadFromConfig(configPath string) error {
 	r.generation.GenerateSchemaRegistry = config.Generation.GenerateSchemaRegistry
 	r.generation.GenerateSchemaNames = config.Generation.GenerateSchemaNames
 	r.generation.UseInterfaces = config.Generation.UseInterfaces
+	r.generation.DeduplicateInterfaces = config.Generation.DeduplicateInterfaces
 	r.generation.ProcessImplicitObjects = config.Generation.ProcessImplicitObjects
 	r.generation.DefaultUnknownType = config.Generation.DefaultUnknownType
 
@@ -328,6 +331,7 @@ func (r *CustomTypeRegistry) SaveExampleConfig(configPath string) error {
 			GenerateSchemaRegistry: false,
 			GenerateSchemaNames:    false,
 			UseInterfaces:          true,
+			DeduplicateInterfaces:  true, // Only declare interfaces once at the top (avoids ESLint errors)
 			ProcessImplicitObjects: false,
 			DefaultUnknownType:     "", // Empty means "t.unknown" (default). Set to "t.unknownRecord" or other io-ts type as needed
 		},
