@@ -22,6 +22,7 @@ generation:
     generateSchemaRegistry: false
     generateSchemaNames: false
     useInterfaces: true
+    deduplicateInterfaces: true
     processImplicitObjects: false
 extensions:
     x-nullable:

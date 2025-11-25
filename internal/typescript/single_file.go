@@ -56,6 +56,7 @@ func (g *SingleFileGenerator) Generate(dtos []generator.DTO, config generator.Co
 		GenerateSchemaRegistry bool
 		GenerateSchemaNames    bool
 		UseInterfaces          bool
+		DeduplicateInterfaces  bool
 	}{
 		DTOs:                   templateDTOs,
 		Config:                 config,
@@ -66,6 +67,7 @@ func (g *SingleFileGenerator) Generate(dtos []generator.DTO, config generator.Co
 		GenerateSchemaRegistry: genConfig.GenerateSchemaRegistry,
 		GenerateSchemaNames:    genConfig.GenerateSchemaNames,
 		UseInterfaces:          genConfig.UseInterfaces,
+		DeduplicateInterfaces:  genConfig.DeduplicateInterfaces,
 	}
 
 	// Execute template
