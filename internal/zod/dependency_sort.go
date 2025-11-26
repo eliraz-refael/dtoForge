@@ -57,6 +57,13 @@ func extractTypeRefs(irType generator.IRType, deps *[]string, seen map[string]bo
 			*deps = append(*deps, t.RefName)
 			seen[t.RefName] = true
 		}
+		// For inline objects, check properties for type references
+		// This is important for allOf with inline objects that have $ref properties
+		if t.Inline && t.DTORef != nil {
+			for _, prop := range t.DTORef.Properties {
+				extractTypeRefs(prop.Type, deps, seen)
+			}
+		}
 	case generator.UnionType:
 		// Union type (oneOf/anyOf) - check all types in the union
 		for _, unionMember := range t.Types {

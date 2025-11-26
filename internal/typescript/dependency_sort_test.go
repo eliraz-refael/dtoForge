@@ -143,6 +143,56 @@ func TestTopologicalSort_AllOfDependencies(t *testing.T) {
 	}
 }
 
+func TestExtractDependencies_WithInlineObjectInAllOf(t *testing.T) {
+	// Test case: allOf with an inline object that has properties referencing other schemas
+	// This simulates:
+	//   ActivityTypeFgEntityIds:
+	//     allOf:
+	//       - $ref: '#/components/schemas/ActivityTypeBase'
+	//       - type: object
+	//         properties:
+	//           workflowFollowUpMetadata:
+	//             $ref: '#/components/schemas/WorkflowFollowUpMetadata'
+	inlineDTO := generator.DTO{
+		Name: "inline",
+		Properties: []generator.Property{
+			{
+				Name: "workflowFollowUpMetadata",
+				Type: generator.ReferenceType{RefName: "WorkflowFollowUpMetadata"},
+			},
+		},
+	}
+
+	dto := generator.DTO{
+		Name: "ActivityTypeFgEntityIds",
+		Type: "allOf",
+		IntersectionType: &generator.IntersectionType{
+			Types: []generator.IRType{
+				generator.ReferenceType{RefName: "ActivityTypeBase"},
+				generator.ObjectType{DTORef: &inlineDTO, Inline: true},
+			},
+		},
+	}
+
+	deps := extractDependencies(dto)
+
+	if len(deps) != 2 {
+		t.Errorf("expected 2 dependencies, got %d: %v", len(deps), deps)
+	}
+
+	found := make(map[string]bool)
+	for _, dep := range deps {
+		found[dep] = true
+	}
+
+	if !found["ActivityTypeBase"] {
+		t.Error("expected dependency 'ActivityTypeBase' not found")
+	}
+	if !found["WorkflowFollowUpMetadata"] {
+		t.Error("expected dependency 'WorkflowFollowUpMetadata' not found")
+	}
+}
+
 func TestTopologicalSort_MultiLevelAllOfDependencies(t *testing.T) {
 	// Create a chain: GrandChild -> Child -> Parent
 	parent := generator.DTO{

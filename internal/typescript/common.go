@@ -168,10 +168,14 @@ func toIoTsType(irType generator.IRType, nullable bool, customTypes *CustomTypeR
 		for _, intersectionType := range t.Types {
 			intersectionTypes = append(intersectionTypes, toIoTsType(intersectionType, false, customTypes))
 		}
-		if len(intersectionTypes) > 0 {
-			baseType = fmt.Sprintf("t.intersection([%s])", strings.Join(intersectionTypes, ", "))
-		} else {
+		if len(intersectionTypes) == 0 {
 			baseType = defaultUnknown
+		} else if len(intersectionTypes) == 1 {
+			// io-ts intersection requires at least 2 elements
+			// If only 1 element, just use it directly without wrapping
+			baseType = intersectionTypes[0]
+		} else {
+			baseType = fmt.Sprintf("t.intersection([%s])", strings.Join(intersectionTypes, ", "))
 		}
 	default:
 		baseType = defaultUnknown
