@@ -292,6 +292,23 @@ func (g *ZodGenerator) toZodType(irType generator.IRType, nullable bool, optiona
 		} else {
 			baseType = "z.unknown()"
 		}
+	case generator.IntersectionType:
+		// Handle allOf/intersection types (schema composition)
+		var intersectionTypes []string
+		for _, intersectionType := range t.Types {
+			intersectionTypes = append(intersectionTypes, g.toZodType(intersectionType, false, false))
+		}
+		if len(intersectionTypes) >= 2 {
+			// Zod's intersection() only takes 2 args, so chain for 3+
+			baseType = fmt.Sprintf("z.intersection(%s, %s)", intersectionTypes[0], intersectionTypes[1])
+			for i := 2; i < len(intersectionTypes); i++ {
+				baseType = fmt.Sprintf("z.intersection(%s, %s)", baseType, intersectionTypes[i])
+			}
+		} else if len(intersectionTypes) == 1 {
+			baseType = intersectionTypes[0]
+		} else {
+			baseType = "z.unknown()"
+		}
 	default:
 		baseType = "z.unknown()"
 	}

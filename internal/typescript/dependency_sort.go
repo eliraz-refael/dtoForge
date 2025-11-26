@@ -55,6 +55,11 @@ func extractTypeRefs(irType generator.IRType, deps *[]string, seen map[string]bo
 		for _, unionMember := range t.Types {
 			extractTypeRefs(unionMember, deps, seen)
 		}
+	case generator.IntersectionType:
+		// Intersection type (allOf) - check all types in the intersection
+		for _, intersectionMember := range t.Types {
+			extractTypeRefs(intersectionMember, deps, seen)
+		}
 	case generator.MapType:
 		// Map type (Record<string, T>) - check the value type
 		extractTypeRefs(t.ValueType, deps, seen)

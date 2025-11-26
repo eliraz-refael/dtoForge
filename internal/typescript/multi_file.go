@@ -187,6 +187,12 @@ func (g *MultiFileGenerator) templateFuncs() template.FuncMap {
 		"propertyToIoTsType": func(prop generator.Property) string {
 			return propertyToIoTsType(prop, g.customTypes)
 		},
+		"intersectionTypeToIoTs": func(intersectionType *generator.IntersectionType) string {
+			if intersectionType == nil {
+				return "t.unknown"
+			}
+			return toIoTsType(*intersectionType, false, g.customTypes)
+		},
 		"toCamelCase":          toCamelCase,
 		"toPascalCase":         toPascalCase,
 		"toKebabCase":          toKebabCase,

@@ -1,0 +1,26 @@
+openapi: 3.0.0
+info:
+  title: AllOf Test API
+  version: 1.0.0
+components:
+  schemas:
+    Base:
+      type: object
+      required:
+        - id
+      properties:
+        id:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    Extended:
+      allOf:
+        - $ref: '#/components/schemas/Base'
+        - type: object
+          properties:
+            name:
+              type: string
+            age:
+              type: number

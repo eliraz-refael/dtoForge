@@ -31,6 +31,12 @@ func TestGoldenFiles(t *testing.T) {
 			configFile:  "testdata/custom-formats.config.yaml",
 			goldenDir:   "testdata/golden/custom-formats",
 		},
+		{
+			name:        "allof-schemas",
+			openAPIFile: "testdata/allof-api.yaml",
+			configFile:  "testdata/allof-test.config.yaml",
+			goldenDir:   "testdata/golden/allof-schemas",
+		},
 	}
 
 	for _, tc := range testCases {
@@ -271,6 +277,12 @@ func TestGoldenFilesWithUpdate(t *testing.T) {
 			openAPIFile: "testdata/formats-api.yaml",
 			configFile:  "testdata/custom-formats.config.yaml",
 			goldenDir:   "testdata/golden/custom-formats",
+		},
+		{
+			name:        "allof-schemas",
+			openAPIFile: "testdata/allof-api.yaml",
+			configFile:  "testdata/allof-test.config.yaml",
+			goldenDir:   "testdata/golden/allof-schemas",
 		},
 	}
 

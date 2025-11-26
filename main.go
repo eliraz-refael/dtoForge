@@ -214,6 +214,42 @@ func convertToGeneratorDTOs(spec *OpenAPISpec) ([]generator.DTO, error) {
 	return dtos, nil
 }
 
+// parseAllOf extracts types from an allOf array in OpenAPI schemas.
+// It handles both $ref references to other schemas and inline schema definitions.
+// Returns an error if parsing fails or if allOf contains fewer than 2 types (semantic validation).
+func parseAllOf(allOf []interface{}, namePrefix string) ([]generator.IRType, error) {
+	var types []generator.IRType
+
+	for i, item := range allOf {
+		itemSchema, ok := item.(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf("allOf item %d is not a valid schema object", i)
+		}
+
+		// Check if it's a reference to another schema
+		if ref, ok := itemSchema["$ref"].(string); ok {
+			refName := extractRefName(ref)
+			types = append(types, generator.ReferenceType{RefName: refName})
+		} else {
+			// It's an inline schema - convert it to extract the type
+			tempProp, err := convertSchemaToGeneratorProperty(fmt.Sprintf("%s_allOfItem%d", namePrefix, i), itemSchema, []string{})
+			if err != nil {
+				return nil, fmt.Errorf("failed to convert allOf item %d: %w", i, err)
+			}
+			types = append(types, tempProp.Type)
+		}
+	}
+
+	// Validate that allOf contains at least 1 type
+	// Note: Single-element allOf is technically valid but semantically redundant
+	// We still support it as it appears in some OpenAPI specs
+	if len(types) == 0 {
+		return nil, fmt.Errorf("allOf must contain at least 1 schema, got 0")
+	}
+
+	return types, nil
+}
+
 func convertSchemaToGeneratorDTO(name string, schema map[string]interface{}) (generator.DTO, error) {
 	dto := generator.DTO{
 		Name:       name,
@@ -224,6 +260,22 @@ func convertSchemaToGeneratorDTO(name string, schema map[string]interface{}) (ge
 
 	if desc, ok := schema["description"].(string); ok {
 		dto.Description = desc
+	}
+
+	// Handle allOf at schema level (schema composition)
+	// allOf represents intersection types where a schema is composed of multiple schemas
+	if allOf, ok := schema["allOf"].([]interface{}); ok {
+		types, err := parseAllOf(allOf, name)
+		if err != nil {
+			return dto, fmt.Errorf("failed to parse allOf for schema %s: %w", name, err)
+		}
+
+		// Store the intersection type in the dedicated field
+		dto.Type = "allOf"
+		intersectionType := generator.IntersectionType{Types: types}
+		dto.IntersectionType = &intersectionType
+
+		return dto, nil
 	}
 
 	// Handle enum types
@@ -376,6 +428,13 @@ func convertSchemaToGeneratorProperty(name string, schema map[string]interface{}
 	} else if ref, ok := schema["$ref"].(string); ok {
 		refName := extractRefName(ref)
 		prop.Type = generator.ReferenceType{RefName: refName}
+	} else if allOf, ok := schema["allOf"].([]interface{}); ok {
+		// Handle allOf (intersection type / schema composition)
+		types, err := parseAllOf(allOf, name)
+		if err != nil {
+			return prop, fmt.Errorf("failed to parse allOf for property %s: %w", name, err)
+		}
+		prop.Type = generator.IntersectionType{Types: types}
 	} else if oneOf, ok := schema["oneOf"].([]interface{}); ok {
 		// Handle oneOf (union type)
 		var types []generator.IRType

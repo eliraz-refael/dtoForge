@@ -1,0 +1,12 @@
+output:
+  folder: ./generated
+  mode: single
+  singleFileName: schemas.ts
+
+generation:
+  generatePackageJson: false
+  generateHelpers: false
+  generateSchemaRegistry: false
+  generateSchemaNames: false
+  useInterfaces: true
+  deduplicateInterfaces: true
