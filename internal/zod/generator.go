@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"text/template"
 
@@ -237,17 +236,11 @@ func (g *ZodGenerator) getPackageName(config generator.Config) string {
 	return "generated-zod-schemas"
 }
 
-// sortDTOsByDependency sorts DTOs to handle dependencies correctly
+// sortDTOsByDependency sorts DTOs to handle dependencies correctly using topological sort
 func (g *ZodGenerator) sortDTOsByDependency(dtos []generator.DTO) []generator.DTO {
-	// Simple alphabetical sort for now - could be enhanced with proper dependency resolution
-	sorted := make([]generator.DTO, len(dtos))
-	copy(sorted, dtos)
-
-	sort.Slice(sorted, func(i, j int) bool {
-		return sorted[i].Name < sorted[j].Name
-	})
-
-	return sorted
+	// Build dependency graph and perform topological sort
+	dependencies := buildDependencyGraph(dtos)
+	return topologicalSort(dtos, dependencies)
 }
 
 // TYPE CONVERSION FUNCTIONS

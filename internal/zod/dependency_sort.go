@@ -1,4 +1,4 @@
-package typescript
+package zod
 
 import (
 	"sort"
@@ -57,7 +57,6 @@ func extractTypeRefs(irType generator.IRType, deps *[]string, seen map[string]bo
 			*deps = append(*deps, t.RefName)
 			seen[t.RefName] = true
 		}
-		// Note: We could also check Properties if ObjectType has them
 	case generator.UnionType:
 		// Union type (oneOf/anyOf) - check all types in the union
 		for _, unionMember := range t.Types {
@@ -161,42 +160,4 @@ func topologicalSort(dtos []generator.DTO, dependencies map[string][]string) []g
 	}
 
 	return sorted
-}
-
-// detectCycles finds circular dependencies in the dependency graph
-// Returns a list of DTOs involved in cycles
-func detectCycles(dependencies map[string][]string) []string {
-	visited := make(map[string]bool)
-	recStack := make(map[string]bool)
-	var cyclic []string
-
-	var hasCycle func(node string) bool
-	hasCycle = func(node string) bool {
-		visited[node] = true
-		recStack[node] = true
-
-		for _, dep := range dependencies[node] {
-			if !visited[dep] {
-				if hasCycle(dep) {
-					return true
-				}
-			} else if recStack[dep] {
-				// Found a cycle
-				cyclic = append(cyclic, node)
-				return true
-			}
-		}
-
-		recStack[node] = false
-		return false
-	}
-
-	// Check each unvisited node
-	for node := range dependencies {
-		if !visited[node] {
-			hasCycle(node)
-		}
-	}
-
-	return cyclic
 }
