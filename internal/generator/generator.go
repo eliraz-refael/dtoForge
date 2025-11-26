@@ -6,13 +6,14 @@ import (
 
 // DTO represents a Data Transfer Object in our IR.
 type DTO struct {
-	Name        string            `json:"name"`
-	Description string            `json:"description"`
-	Properties  []Property        `json:"properties"`
-	Required    []string          `json:"required"`
-	Type        string            `json:"type"` // object, enum, etc.
-	EnumValues  []string          `json:"enumValues,omitempty"`
-	Metadata    map[string]string `json:"metadata,omitempty"`
+	Name             string            `json:"name"`
+	Description      string            `json:"description"`
+	Properties       []Property        `json:"properties"`
+	Required         []string          `json:"required"`
+	Type             string            `json:"type"` // object, enum, allOf, etc.
+	EnumValues       []string          `json:"enumValues,omitempty"`
+	Metadata         map[string]string `json:"metadata,omitempty"`
+	IntersectionType *IntersectionType `json:"intersectionType,omitempty"` // For allOf schema composition
 }
 
 // Property represents a field within a DTO.

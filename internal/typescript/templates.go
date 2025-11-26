@@ -22,6 +22,18 @@ export const is{{.DTO.Name}} = (value: unknown): value is {{.DTO.Name}} =>
 // Decode helper with error handling
 export const decode{{.DTO.Name}} = (value: unknown) =>
   {{.DTO.Name}}.decode(value);{{end}}
+{{else if eq .DTO.Type "allOf"}}// Schema: {{.DTO.Name}} (allOf composition)
+export const {{.DTO.Name}} = {{intersectionTypeToIoTs .DTO.IntersectionType}}
+
+{{if eq .DTO.Type "enum"}}export type {{.DTO.Name}} = t.TypeOf<typeof {{.DTO.Name}}>;{{/* Enums must always use type, not interface */}}{{else if .UseInterfaces}}export interface {{.DTO.Name}} extends t.TypeOf<typeof {{.DTO.Name}}> {}{{else}}export type {{.DTO.Name}} = t.TypeOf<typeof {{.DTO.Name}}>;{{end}}
+
+{{if .GenerateHelpers}}// Validation helper
+export const is{{.DTO.Name}} = (value: unknown): value is {{.DTO.Name}} =>
+  {{.DTO.Name}}.is(value);
+
+// Decode helper with error handling
+export const decode{{.DTO.Name}} = (value: unknown) =>
+  {{.DTO.Name}}.decode(value);{{end}}
 {{else}}// Schema: {{.DTO.Name}}
 {{if .HasRequiredFields}}export const {{.DTO.Name}} = t.intersection([
   t.type({
@@ -177,6 +189,9 @@ export const {{.DTO.Name}} = t.keyof({
 {{end}}});
 
 export type {{.DTO.Name}} = t.TypeOf<typeof {{.DTO.Name}}>;{{/* Enums must always use type, not interface */}}
+
+{{else if eq .DTO.Type "allOf"}}// Schema: {{.DTO.Name}} (allOf composition)
+export const {{.DTO.Name}} = {{intersectionTypeToIoTs .DTO.IntersectionType}}
 
 {{else}}// Schema: {{.DTO.Name}}
 {{if .HasRequiredFields}}export const {{.DTO.Name}} = t.intersection([

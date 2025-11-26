@@ -118,6 +118,31 @@ func toIoTsType(irType generator.IRType, nullable bool, customTypes *CustomTypeR
 	case generator.ObjectType:
 		if t.RefName != "" {
 			baseType = t.RefName
+		} else if t.DTORef != nil && len(t.DTORef.Properties) > 0 {
+			// Inline object with properties - generate the structure directly
+			var requiredProps []string
+			var optionalProps []string
+
+			for _, prop := range t.DTORef.Properties {
+				propType := propertyToIoTsType(prop, customTypes)
+				propLine := fmt.Sprintf("%s: %s", safePropertyName(prop.Name), propType)
+				if prop.Required {
+					requiredProps = append(requiredProps, propLine)
+				} else {
+					optionalProps = append(optionalProps, propLine)
+				}
+			}
+
+			if len(requiredProps) > 0 && len(optionalProps) > 0 {
+				baseType = fmt.Sprintf("t.intersection([t.type({%s}), t.partial({%s})])",
+					strings.Join(requiredProps, ", "), strings.Join(optionalProps, ", "))
+			} else if len(requiredProps) > 0 {
+				baseType = fmt.Sprintf("t.type({%s})", strings.Join(requiredProps, ", "))
+			} else if len(optionalProps) > 0 {
+				baseType = fmt.Sprintf("t.partial({%s})", strings.Join(optionalProps, ", "))
+			} else {
+				baseType = "t.type({})"
+			}
 		} else {
 			baseType = defaultUnknown // inline objects need special handling
 		}
@@ -134,6 +159,17 @@ func toIoTsType(irType generator.IRType, nullable bool, customTypes *CustomTypeR
 		}
 		if len(unionTypes) > 0 {
 			baseType = fmt.Sprintf("t.union([%s])", strings.Join(unionTypes, ", "))
+		} else {
+			baseType = defaultUnknown
+		}
+	case generator.IntersectionType:
+		// Handle allOf/intersection types (schema composition)
+		var intersectionTypes []string
+		for _, intersectionType := range t.Types {
+			intersectionTypes = append(intersectionTypes, toIoTsType(intersectionType, false, customTypes))
+		}
+		if len(intersectionTypes) > 0 {
+			baseType = fmt.Sprintf("t.intersection([%s])", strings.Join(intersectionTypes, ", "))
 		} else {
 			baseType = defaultUnknown
 		}
@@ -209,6 +245,17 @@ func toTSType(irType generator.IRType, nullable bool, customTypes *CustomTypeReg
 		}
 		if len(unionTypes) > 0 {
 			baseType = fmt.Sprintf("(%s)", strings.Join(unionTypes, " | "))
+		} else {
+			baseType = defaultUnknown
+		}
+	case generator.IntersectionType:
+		// Handle allOf/intersection types (schema composition)
+		var intersectionTypes []string
+		for _, intersectionType := range t.Types {
+			intersectionTypes = append(intersectionTypes, toTSType(intersectionType, false, customTypes))
+		}
+		if len(intersectionTypes) > 0 {
+			baseType = fmt.Sprintf("(%s)", strings.Join(intersectionTypes, " & "))
 		} else {
 			baseType = defaultUnknown
 		}

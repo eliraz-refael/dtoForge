@@ -75,6 +75,19 @@ func (u UnionType) TypeName() string {
 	return fmt.Sprintf("(%s)", strings.Join(typeNames, " | "))
 }
 
+// IntersectionType represents allOf schemas (schema composition)
+type IntersectionType struct {
+	Types []IRType `json:"types"`
+}
+
+func (i IntersectionType) TypeName() string {
+	var typeNames []string
+	for _, t := range i.Types {
+		typeNames = append(typeNames, t.TypeName())
+	}
+	return fmt.Sprintf("(%s)", strings.Join(typeNames, " & "))
+}
+
 // MapType represents object with additionalProperties (key-value mapping)
 type MapType struct {
 	ValueType IRType `json:"valueType"`
