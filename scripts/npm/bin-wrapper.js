@@ -39,8 +39,9 @@ function ensureBinaryInstalled() {
   console.log('DtoForge binary not found, installing...');
 
   try {
-    // Run install.js synchronously
-    require(installScript);
+    // Run install.js synchronously - must call the exported function
+    const { installBinary } = require(installScript);
+    installBinary();
     return fs.existsSync(binaryPath);
   } catch (error) {
     console.error(`Failed to install DtoForge binary: ${error.message}`);

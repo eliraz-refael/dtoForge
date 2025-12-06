@@ -53,8 +53,16 @@ jobs:
 
     - name: Download all platform binaries
       run: |
+        set -e  # Exit on any error
+
         mkdir -p npm-package/binaries
         cd npm-package/binaries
+
+        RELEASE_TAG="${{ steps.get_version.outputs.release_tag }}"
+        REPO="${{ github.repository }}"
+
+        echo "📦 Downloading binaries from release: $RELEASE_TAG"
+        echo "📍 Repository: $REPO"
 
         # Download all platform binaries
         platforms=(
@@ -68,17 +76,34 @@ jobs:
 
         for platform in "${platforms[@]}"; do
           IFS=':' read -r github_name npm_name <<< "$platform"
-          echo "Downloading $github_name as $npm_name..."
+          DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${RELEASE_TAG}/${github_name}"
 
-          curl -L -o "$npm_name" \
-            "https://github.com/eliraz-refael/dtoForge/releases/download/${{ steps.get_version.outputs.release_tag }}/$github_name"
+          echo "⬇️  Downloading $github_name as $npm_name..."
+          echo "   URL: $DOWNLOAD_URL"
+
+          # Use -f to fail on HTTP errors, --retry for transient failures
+          if ! curl -fL --retry 3 --retry-delay 5 -o "$npm_name" "$DOWNLOAD_URL"; then
+            echo "❌ Failed to download $github_name"
+            echo "   Please verify the release $RELEASE_TAG exists and contains this binary"
+            exit 1
+          fi
+
+          # Verify file was downloaded and has content
+          if [ ! -s "$npm_name" ]; then
+            echo "❌ Downloaded file $npm_name is empty!"
+            exit 1
+          fi
 
           # Make executable if not Windows
           if [[ "$npm_name" != *.exe ]]; then
             chmod +x "$npm_name"
           fi
+
+          echo "✅ Downloaded $npm_name ($(stat -c%s "$npm_name" 2>/dev/null || stat -f%z "$npm_name") bytes)"
         done
 
+        echo ""
+        echo "📋 All binaries downloaded:"
         ls -la
 
     - name: Copy npm files from repo
