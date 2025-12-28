@@ -477,12 +477,14 @@ Options:
   -config string     Config file path
   -no-config         Disable config file discovery
   -example-config    Generate example config file
+  -version           Print version and exit
 
 Examples:
   dtoforge -openapi api.yaml -out ./types
   dtoforge -openapi api.yaml -lang typescript-zod
   dtoforge -openapi api.yaml -config my-config.yaml
   dtoforge -example-config
+  dtoforge -version
 ```
 
 ## 🔍 Troubleshooting

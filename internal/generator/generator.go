@@ -39,6 +39,7 @@ type Config struct {
 	PackageName    string
 	TargetLanguage string
 	ConfigFile     string // Path to the custom types config file
+	Version        string // Version of dtoForge (for generated file headers)
 }
 
 // Generator is the interface that all language generators must implement
