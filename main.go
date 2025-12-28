@@ -15,6 +15,10 @@ import (
 	"dtoForge/internal/zod"
 )
 
+// Version is set at build time via ldflags
+// e.g., go build -ldflags "-X main.Version=v1.4.7"
+var Version = "dev"
+
 type Config struct {
 	OpenAPIFile    string
 	OutputFolder   string
@@ -40,7 +44,7 @@ func parseCLIArgs() Config {
 	noConfig := flag.Bool("no-config", false, "Disable automatic config file discovery")
 
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "DtoForge - OpenAPI to TypeScript schema generator\n\n")
+		fmt.Fprintf(os.Stderr, "DtoForge %s - OpenAPI to TypeScript schema generator\n\n", Version)
 		fmt.Fprintf(os.Stderr, "Usage: %s [options]\n\n", os.Args[0])
 		fmt.Fprintf(os.Stderr, "Options:\n")
 		flag.PrintDefaults()
@@ -54,10 +58,17 @@ func parseCLIArgs() Config {
 		fmt.Fprintf(os.Stderr, "\nExample config file can be generated with: %s -example-config\n", os.Args[0])
 	}
 
-	// Special flag to generate example config
+	// Special flags
+	showVersion := flag.Bool("version", false, "Print version and exit")
 	exampleConfig := flag.Bool("example-config", false, "Generate example dtoforge.config.yaml and exit")
 
 	flag.Parse()
+
+	// Handle version flag
+	if *showVersion {
+		fmt.Printf("DtoForge %s\n", Version)
+		os.Exit(0)
+	}
 
 	// Handle example config generation
 	if *exampleConfig {
@@ -582,6 +593,7 @@ func main() {
 		PackageName:    config.PackageName,
 		TargetLanguage: config.TargetLanguage,
 		ConfigFile:     configFile, // This will be empty if --no-config is used
+		Version:        Version,
 	}
 
 	if err := gen.Generate(dtos, genConfig); err != nil {
@@ -589,5 +601,5 @@ func main() {
 		os.Exit(1)
 	}
 
-	fmt.Printf("🚀 Successfully generated %s code in %s\n", config.TargetLanguage, finalOutputFolder)
+	fmt.Printf("🚀 DtoForge %s: Successfully generated %s code in %s\n", Version, config.TargetLanguage, finalOutputFolder)
 }
