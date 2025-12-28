@@ -146,6 +146,9 @@ func topologicalSort(dtos []generator.DTO, dependencies map[string][]string) []g
 				queue = append(queue, dependent)
 			}
 		}
+
+		// Sort queue after adding new elements to ensure deterministic output
+		sort.Strings(queue)
 	}
 
 	// Handle cycles: add any remaining DTOs in alphabetical order
