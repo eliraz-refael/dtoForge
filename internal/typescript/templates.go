@@ -37,11 +37,11 @@ export const decode{{.DTO.Name}} = (value: unknown) =>
 {{else}}// Schema: {{.DTO.Name}}
 {{if .HasRequiredFields}}export const {{.DTO.Name}} = t.intersection([
   t.type({
-{{range .DTO.Properties}}{{if .Required}}{{if hasDescription .Description}}    // {{.Description}}
+{{range .DTO.Properties}}{{if isEffectivelyRequired .}}{{if hasDescription .Description}}    // {{.Description}}
 {{end}}    {{safePropertyName .Name}}: {{propertyToIoTsType .}},
 {{end}}{{end}}  }),
   t.partial({
-{{range .DTO.Properties}}{{if not .Required}}{{if hasDescription .Description}}    // {{.Description}}
+{{range .DTO.Properties}}{{if not (isEffectivelyRequired .)}}{{if hasDescription .Description}}    // {{.Description}}
 {{end}}    {{safePropertyName .Name}}: {{propertyToIoTsType .}},
 {{end}}{{end}}  })
 ]){{else}}export const {{.DTO.Name}} = t.partial({
@@ -196,11 +196,11 @@ export const {{.DTO.Name}} = {{intersectionTypeToIoTs .DTO.IntersectionType}}
 {{else}}// Schema: {{.DTO.Name}}
 {{if .HasRequiredFields}}export const {{.DTO.Name}} = t.intersection([
   t.type({
-{{range .DTO.Properties}}{{if .Required}}{{if hasDescription .Description}}    // {{.Description}}
+{{range .DTO.Properties}}{{if isEffectivelyRequired .}}{{if hasDescription .Description}}    // {{.Description}}
 {{end}}    {{safePropertyName .Name}}: {{propertyToIoTsType .}},
 {{end}}{{end}}  }),
   t.partial({
-{{range .DTO.Properties}}{{if not .Required}}{{if hasDescription .Description}}    // {{.Description}}
+{{range .DTO.Properties}}{{if not (isEffectivelyRequired .)}}{{if hasDescription .Description}}    // {{.Description}}
 {{end}}    {{safePropertyName .Name}}: {{propertyToIoTsType .}},
 {{end}}{{end}}  })
 ]){{else}}export const {{.DTO.Name}} = t.partial({

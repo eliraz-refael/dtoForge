@@ -216,16 +216,18 @@ func (g *ZodGenerator) generatePackageJSON(config generator.Config) error {
 // Helper functions for templates
 func (g *ZodGenerator) templateFuncs() template.FuncMap {
 	return template.FuncMap{
-		"toZodType":      g.toZodType,
-		"toCamelCase":    g.toCamelCase,
-		"toPascalCase":   g.toPascalCase,
-		"toKebabCase":    g.toKebabCase,
-		"hasDescription": g.hasDescription,
-		"len":            func(slice []string) int { return len(slice) },
-		"add":            func(a, b int) int { return a + b },
-		"sub":            func(a, b int) int { return a - b },
-		"lt":             func(a, b int) bool { return a < b },
-		"not":            func(b bool) bool { return !b },
+		"toZodType":             g.toZodType,
+		"propertyToZodType":     g.propertyToZodType,
+		"isEffectivelyRequired": g.isEffectivelyRequired,
+		"toCamelCase":           g.toCamelCase,
+		"toPascalCase":          g.toPascalCase,
+		"toKebabCase":           g.toKebabCase,
+		"hasDescription":        g.hasDescription,
+		"len":                   func(slice []string) int { return len(slice) },
+		"add":                   func(a, b int) int { return a + b },
+		"sub":                   func(a, b int) int { return a - b },
+		"lt":                    func(a, b int) bool { return a < b },
+		"not":                   func(b bool) bool { return !b },
 	}
 }
 
@@ -390,6 +392,72 @@ func (g *ZodGenerator) toKebabCase(s string) string {
 
 func (g *ZodGenerator) hasDescription(desc string) bool {
 	return strings.TrimSpace(desc) != ""
+}
+
+// X-NULLABLE SUPPORT
+
+// hasXNullable checks if a property has x-nullable: true extension
+func (g *ZodGenerator) hasXNullable(prop generator.Property) bool {
+	// Check if x-nullable handling is enabled
+	if !g.customTypes.IsXNullableEnabled() {
+		return false
+	}
+
+	if prop.Extensions == nil {
+		return false
+	}
+	if xNullable, ok := prop.Extensions["x-nullable"]; ok {
+		// Handle both bool and string representations
+		switch v := xNullable.(type) {
+		case bool:
+			return v
+		case string:
+			return v == "true"
+		}
+	}
+	return false
+}
+
+// XNullableEffect represents the effect of x-nullable on a property
+type XNullableEffect struct {
+	MakeNullable bool // Add .nullable() to the type
+	MakeOptional bool // Add .optional() to the type
+}
+
+// getXNullableEffect determines the effect of x-nullable based on config
+func (g *ZodGenerator) getXNullableEffect(prop generator.Property) XNullableEffect {
+	if !g.hasXNullable(prop) {
+		return XNullableEffect{MakeNullable: false, MakeOptional: false}
+	}
+
+	behavior := g.customTypes.GetXNullableBehavior()
+	switch behavior {
+	case XNullableBehaviorNull:
+		return XNullableEffect{MakeNullable: true, MakeOptional: false}
+	case XNullableBehaviorUndefined:
+		return XNullableEffect{MakeNullable: false, MakeOptional: true}
+	case XNullableBehaviorNullish:
+		return XNullableEffect{MakeNullable: true, MakeOptional: true}
+	default:
+		return XNullableEffect{MakeNullable: true, MakeOptional: false} // Default to "null"
+	}
+}
+
+// isEffectivelyRequired checks if a property is effectively required after considering x-nullable
+func (g *ZodGenerator) isEffectivelyRequired(prop generator.Property) bool {
+	if !prop.Required {
+		return false
+	}
+	effect := g.getXNullableEffect(prop)
+	return !effect.MakeOptional
+}
+
+// propertyToZodType converts a property to Zod type considering x-nullable
+func (g *ZodGenerator) propertyToZodType(prop generator.Property) string {
+	effect := g.getXNullableEffect(prop)
+	nullable := prop.Nullable || effect.MakeNullable
+	optional := !prop.Required || effect.MakeOptional
+	return g.toZodType(prop.Type, nullable, optional)
 }
 
 // calculateImports determines what needs to be imported for a DTO using custom types

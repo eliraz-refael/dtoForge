@@ -223,7 +223,8 @@ generation:
 # OpenAPI extensions support
 extensions:
   x-nullable:
-    enabled: true  # Enable x-nullable extension support (default: true)
+    enabled: true      # Enable x-nullable extension support (default: true)
+    behavior: "null"   # "null" | "undefined" | "nullish" (default: "null")
 
 # Schema exclusion rules (optional)
 exclude:
@@ -357,7 +358,7 @@ export const Config = t.partial({
 
 DtoForge supports the `x-nullable` OpenAPI extension to explicitly mark fields as nullable, providing more precise type generation than the standard `nullable` property.
 
-**Note:** Currently supported for io-ts generator only. Zod support coming soon.
+**Supported in both io-ts and Zod generators.**
 
 #### Usage in OpenAPI Schema:
 ```yaml
@@ -379,32 +380,92 @@ components:
           type: string  # Regular optional field
 ```
 
-#### Generated TypeScript (io-ts):
+#### Configuration:
+
+Configure x-nullable behavior in your config file:
+```yaml
+extensions:
+  x-nullable:
+    enabled: true      # Enable/disable x-nullable processing (default: true)
+    behavior: "null"   # "null" | "undefined" | "nullish"
+```
+
+#### Behavior Options:
+
+| Behavior | Description | io-ts Output | Zod Output |
+|----------|-------------|--------------|------------|
+| `"null"` (default) | Field can be null | `t.union([T, t.null])` | `.nullable()` |
+| `"undefined"` | Field becomes optional | Moves to `t.partial` | `.optional()` |
+| `"nullish"` | Both null and optional | In `t.partial` with `t.union([T, t.null])` | `.nullable().optional()` |
+
+#### Generated Output Examples:
+
+**With behavior: "null" (default)**
 ```typescript
+// io-ts
 export const User = t.intersection([
   t.type({
     id: t.string,
     email: t.union([t.string, t.null]), // Required but nullable
   }),
+  t.partial({ phone: t.string, address: t.string })
+])
+
+// Zod
+export const UserSchema = z.object({
+  id: z.string(),
+  email: z.string().nullable(), // Required but nullable
+  phone: z.string().optional(),
+  address: z.string().optional(),
+});
+```
+
+**With behavior: "undefined"**
+```typescript
+// io-ts
+export const User = t.intersection([
+  t.type({ id: t.string }),
   t.partial({
-    phone: t.string,  // Optional, not nullable
-    address: t.string, // Optional, not nullable
+    email: t.string,  // Moved to partial (optional)
+    phone: t.string,
+    address: t.string
   })
 ])
+
+// Zod
+export const UserSchema = z.object({
+  id: z.string(),
+  email: z.string().optional(), // Made optional by x-nullable
+  phone: z.string().optional(),
+  address: z.string().optional(),
+});
+```
+
+**With behavior: "nullish"**
+```typescript
+// io-ts
+export const User = t.intersection([
+  t.type({ id: t.string }),
+  t.partial({
+    email: t.union([t.string, t.null]), // Partial (optional) + nullable
+    phone: t.string,
+    address: t.string
+  })
+])
+
+// Zod
+export const UserSchema = z.object({
+  id: z.string(),
+  email: z.string().nullable().optional(), // Both nullable and optional
+  phone: z.string().optional(),
+  address: z.string().optional(),
+});
 ```
 
 #### Key Differences:
 - **Standard `nullable`**: Makes a field accept null values
-- **`x-nullable: true`**: Explicitly makes the field nullable, even if required
-- **`x-nullable: false`**: Explicitly prevents null, useful for documentation
-
-#### Configuration:
-You can disable x-nullable processing if needed:
-```yaml
-extensions:
-  x-nullable:
-    enabled: false  # Disable x-nullable extension support
-```
+- **`x-nullable: true`**: Behavior depends on configuration (null, undefined, or both)
+- **`x-nullable: false`**: Explicitly prevents the x-nullable effect
 
 ### Custom Branded Types
 ```typescript

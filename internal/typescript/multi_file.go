@@ -80,10 +80,10 @@ func (g *MultiFileGenerator) generateDTOFile(dto generator.DTO, config generator
 		return err
 	}
 
-	// Check if DTO has required fields
+	// Check if DTO has required fields (considering x-nullable effects)
 	hasRequired := false
 	for _, prop := range dto.Properties {
-		if prop.Required {
+		if isEffectivelyRequired(prop, g.customTypes) {
 			hasRequired = true
 			break
 		}
@@ -192,6 +192,9 @@ func (g *MultiFileGenerator) templateFuncs() template.FuncMap {
 				return "t.unknown"
 			}
 			return toIoTsType(*intersectionType, false, g.customTypes)
+		},
+		"isEffectivelyRequired": func(prop generator.Property) bool {
+			return isEffectivelyRequired(prop, g.customTypes)
 		},
 		"toCamelCase":          toCamelCase,
 		"toPascalCase":         toPascalCase,

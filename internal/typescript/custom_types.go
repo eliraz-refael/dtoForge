@@ -36,9 +36,22 @@ type CustomTypeMapping struct {
 	ImportStatement string `yaml:"import"`
 }
 
+// XNullableBehavior represents the behavior when x-nullable is true
+type XNullableBehavior string
+
+const (
+	// XNullableBehaviorNull adds null to the type union (default, current behavior)
+	XNullableBehaviorNull XNullableBehavior = "null"
+	// XNullableBehaviorUndefined makes the field optional even if required
+	XNullableBehaviorUndefined XNullableBehavior = "undefined"
+	// XNullableBehaviorNullish makes the field both nullable and optional
+	XNullableBehaviorNullish XNullableBehavior = "nullish"
+)
+
 // XNullableConfig represents x-nullable configuration
 type XNullableConfig struct {
-	Enabled *bool `yaml:"enabled"` // Pointer to detect if it was set
+	Enabled  *bool             `yaml:"enabled"`  // Pointer to detect if it was set
+	Behavior XNullableBehavior `yaml:"behavior"` // "null", "undefined", or "nullish"
 }
 
 // ExtensionConfig represents configuration for OpenAPI extensions
@@ -164,6 +177,14 @@ func (r *CustomTypeRegistry) IsXNullableEnabled() bool {
 		return true
 	}
 	return *r.extensions.XNullable.Enabled
+}
+
+// GetXNullableBehavior returns the configured x-nullable behavior
+func (r *CustomTypeRegistry) GetXNullableBehavior() XNullableBehavior {
+	if r.extensions.XNullable.Behavior == "" {
+		return XNullableBehaviorNull // Default to "null" for backward compatibility
+	}
+	return r.extensions.XNullable.Behavior
 }
 
 // IsSingleFileMode returns true if single file output is configured
@@ -302,6 +323,10 @@ func (r *CustomTypeRegistry) LoadFromConfig(configPath string) error {
 	if config.Extensions.XNullable.Enabled != nil {
 		r.extensions.XNullable.Enabled = config.Extensions.XNullable.Enabled
 	}
+	// Load x-nullable behavior if set
+	if config.Extensions.XNullable.Behavior != "" {
+		r.extensions.XNullable.Behavior = config.Extensions.XNullable.Behavior
+	}
 
 	// Load exclude config if provided
 	if config.Exclude != nil {
@@ -318,6 +343,7 @@ func (r *CustomTypeRegistry) LoadFromConfig(configPath string) error {
 
 // SaveExampleConfig creates an example configuration file
 func (r *CustomTypeRegistry) SaveExampleConfig(configPath string) error {
+	enabled := true
 	exampleConfig := EnhancedCustomTypeConfig{
 		Output: OutputConfig{
 			Folder:         "./generated",
@@ -334,6 +360,12 @@ func (r *CustomTypeRegistry) SaveExampleConfig(configPath string) error {
 			DeduplicateInterfaces:  true, // Only declare interfaces once at the top (avoids ESLint errors)
 			ProcessImplicitObjects: false,
 			DefaultUnknownType:     "", // Empty means "t.unknown" (default). Set to "t.unknownRecord" or other io-ts type as needed
+		},
+		Extensions: ExtensionConfig{
+			XNullable: XNullableConfig{
+				Enabled:  &enabled,
+				Behavior: XNullableBehaviorNull, // "null" (default), "undefined", or "nullish"
+			},
 		},
 		CustomTypes: map[string]CustomTypeMapping{
 			"date-time": {
