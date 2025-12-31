@@ -17,7 +17,7 @@ export type {{.DTO.Name}} = z.infer<typeof {{.DTO.Name}}Schema>;
 {{else}}// Schema: {{.DTO.Name}}
 export const {{.DTO.Name}}Schema = z.object({
 {{range .DTO.Properties}}{{if hasDescription .Description}}  // {{.Description}}
-{{end}}  {{toCamelCase .Name}}: {{toZodType .Type .Nullable (not .Required)}},
+{{end}}  {{toCamelCase .Name}}: {{propertyToZodType .}},
 {{end}}});
 
 export type {{.DTO.Name}} = z.infer<typeof {{.DTO.Name}}Schema>;
@@ -133,7 +133,7 @@ export type {{.Name}} = z.infer<typeof {{.Name}}Schema>;
 {{else}}// Schema: {{.Name}}
 export const {{.Name}}Schema = z.object({
 {{range .Properties}}{{if hasDescription .Description}}  // {{.Description}}
-{{end}}  {{toCamelCase .Name}}: {{toZodType .Type .Nullable (not .Required)}},
+{{end}}  {{toCamelCase .Name}}: {{propertyToZodType .}},
 {{end}}});
 
 export type {{.Name}} = z.infer<typeof {{.Name}}Schema>;

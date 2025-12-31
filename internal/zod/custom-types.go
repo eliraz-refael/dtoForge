@@ -32,11 +32,35 @@ type CustomTypeMapping struct {
 	Import         string `yaml:"import"`
 }
 
+// XNullableBehavior represents the behavior when x-nullable is true
+type XNullableBehavior string
+
+const (
+	// XNullableBehaviorNull adds null to the type (.nullable())
+	XNullableBehaviorNull XNullableBehavior = "null"
+	// XNullableBehaviorUndefined makes the field optional (.optional())
+	XNullableBehaviorUndefined XNullableBehavior = "undefined"
+	// XNullableBehaviorNullish makes the field both nullable and optional
+	XNullableBehaviorNullish XNullableBehavior = "nullish"
+)
+
+// XNullableConfig represents x-nullable configuration
+type XNullableConfig struct {
+	Enabled  *bool             `yaml:"enabled"`  // Pointer to detect if it was set
+	Behavior XNullableBehavior `yaml:"behavior"` // "null", "undefined", or "nullish"
+}
+
+// ExtensionConfig represents configuration for OpenAPI extensions
+type ExtensionConfig struct {
+	XNullable XNullableConfig `yaml:"x-nullable"`
+}
+
 // ZodCustomTypeConfig represents the typescript-zod section in YAML configuration
 type ZodCustomTypeConfig struct {
 	Output      OutputConfig                 `yaml:"output"`
 	CustomTypes map[string]CustomTypeMapping `yaml:"customTypes"`
 	Generation  GenerationConfig             `yaml:"generation"`
+	Extensions  ExtensionConfig              `yaml:"extensions"`
 }
 
 // FullConfig represents the complete YAML configuration structure
@@ -49,6 +73,7 @@ type CustomTypeRegistry struct {
 	mappings   map[string]CustomTypeMapping
 	output     OutputConfig
 	generation GenerationConfig
+	extensions ExtensionConfig
 }
 
 // NewCustomTypeRegistry creates a new registry with default mappings and config
@@ -67,7 +92,12 @@ func NewCustomTypeRegistry() *CustomTypeRegistry {
 			GenerateSchemaNames:    false,
 			ProcessImplicitObjects: false, // Default to false for backward compatibility
 		},
+		extensions: ExtensionConfig{},
 	}
+
+	// Enable x-nullable by default
+	enabled := true
+	registry.extensions.XNullable.Enabled = &enabled
 
 	registry.addDefaultMappings()
 	return registry
@@ -94,6 +124,23 @@ func (r *CustomTypeRegistry) GetSingleFileName() string {
 		return "schemas.ts"
 	}
 	return r.output.SingleFileName
+}
+
+// IsXNullableEnabled returns true if x-nullable extension handling is enabled
+func (r *CustomTypeRegistry) IsXNullableEnabled() bool {
+	// If not set (nil), default to true
+	if r.extensions.XNullable.Enabled == nil {
+		return true
+	}
+	return *r.extensions.XNullable.Enabled
+}
+
+// GetXNullableBehavior returns the configured x-nullable behavior
+func (r *CustomTypeRegistry) GetXNullableBehavior() XNullableBehavior {
+	if r.extensions.XNullable.Behavior == "" {
+		return XNullableBehaviorNull // Default to "null" for backward compatibility
+	}
+	return r.extensions.XNullable.Behavior
 }
 
 // addDefaultMappings adds the built-in format mappings for Zod
@@ -211,6 +258,16 @@ func (r *CustomTypeRegistry) LoadFromConfig(configPath string) error {
 	r.generation.GenerateHelpers = zodConfig.Generation.GenerateHelpers
 	r.generation.GenerateSchemaRegistry = zodConfig.Generation.GenerateSchemaRegistry
 	r.generation.GenerateSchemaNames = zodConfig.Generation.GenerateSchemaNames
+
+	// Load extensions config
+	// Only update if explicitly set in config (pointer is not nil)
+	if zodConfig.Extensions.XNullable.Enabled != nil {
+		r.extensions.XNullable.Enabled = zodConfig.Extensions.XNullable.Enabled
+	}
+	// Load x-nullable behavior if set
+	if zodConfig.Extensions.XNullable.Behavior != "" {
+		r.extensions.XNullable.Behavior = zodConfig.Extensions.XNullable.Behavior
+	}
 
 	// Register all custom types from config
 	for format, mapping := range zodConfig.CustomTypes {

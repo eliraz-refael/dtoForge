@@ -100,7 +100,8 @@ func (g *SingleFileGenerator) prepareDTOs(dtos []generator.DTO) []templateDTO {
 	for _, dto := range dtos {
 		hasRequired := false
 		for _, prop := range dto.Properties {
-			if prop.Required {
+			// Use isEffectivelyRequired to account for x-nullable making fields optional
+			if isEffectivelyRequired(prop, g.customTypes) {
 				hasRequired = true
 				break
 			}
@@ -150,6 +151,9 @@ func (g *SingleFileGenerator) templateFuncs() template.FuncMap {
 				return "t.unknown"
 			}
 			return toIoTsType(*intersectionType, false, g.customTypes)
+		},
+		"isEffectivelyRequired": func(prop generator.Property) bool {
+			return isEffectivelyRequired(prop, g.customTypes)
 		},
 		"toCamelCase":          toCamelCase,
 		"toPascalCase":         toPascalCase,

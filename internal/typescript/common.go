@@ -339,10 +339,48 @@ func hasXNullable(prop generator.Property, customTypes *CustomTypeRegistry) bool
 	return false
 }
 
+// XNullableEffect represents the effect of x-nullable on a property
+type XNullableEffect struct {
+	MakeNullable bool // Add null to the type union
+	MakeOptional bool // Move property to partial (make it optional)
+}
+
+// getXNullableEffect determines the effect of x-nullable based on config
+func getXNullableEffect(prop generator.Property, customTypes *CustomTypeRegistry) XNullableEffect {
+	if !hasXNullable(prop, customTypes) {
+		return XNullableEffect{MakeNullable: false, MakeOptional: false}
+	}
+
+	behavior := customTypes.GetXNullableBehavior()
+	switch behavior {
+	case XNullableBehaviorNull:
+		return XNullableEffect{MakeNullable: true, MakeOptional: false}
+	case XNullableBehaviorUndefined:
+		return XNullableEffect{MakeNullable: false, MakeOptional: true}
+	case XNullableBehaviorNullish:
+		return XNullableEffect{MakeNullable: true, MakeOptional: true}
+	default:
+		return XNullableEffect{MakeNullable: true, MakeOptional: false} // Default to "null"
+	}
+}
+
+// isEffectivelyRequired checks if a property is effectively required after considering x-nullable
+// A property is NOT effectively required if:
+// - It's not marked as required in OpenAPI
+// - OR x-nullable makes it optional (behavior is "undefined" or "nullish")
+func isEffectivelyRequired(prop generator.Property, customTypes *CustomTypeRegistry) bool {
+	if !prop.Required {
+		return false
+	}
+	effect := getXNullableEffect(prop, customTypes)
+	return !effect.MakeOptional
+}
+
 // propertyToIoTsType converts a property to io-ts type considering x-nullable
 func propertyToIoTsType(prop generator.Property, customTypes *CustomTypeRegistry) string {
-	// Check if property should be nullable due to x-nullable extension
-	nullable := prop.Nullable || hasXNullable(prop, customTypes)
+	// Check if property should be nullable due to x-nullable extension or standard nullable
+	effect := getXNullableEffect(prop, customTypes)
+	nullable := prop.Nullable || effect.MakeNullable
 	return toIoTsType(prop.Type, nullable, customTypes)
 }
 
