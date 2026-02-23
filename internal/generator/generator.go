@@ -14,6 +14,7 @@ type DTO struct {
 	EnumValues       []string          `json:"enumValues,omitempty"`
 	Metadata         map[string]string `json:"metadata,omitempty"`
 	IntersectionType *IntersectionType `json:"intersectionType,omitempty"` // For allOf schema composition
+	IsSelfRecursive  bool              `json:"isSelfRecursive,omitempty"`
 }
 
 // Property represents a field within a DTO.

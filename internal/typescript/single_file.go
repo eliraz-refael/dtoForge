@@ -89,8 +89,20 @@ func (g *SingleFileGenerator) sortByDependency(dtos []generator.DTO) []generator
 	// Build dependency graph
 	dependencies := buildDependencyGraph(dtos)
 
+	// Detect and remove self-references before topological sort
+	selfRecursive := detectAndRemoveSelfReferences(dependencies)
+
 	// Perform topological sort
-	return topologicalSort(dtos, dependencies)
+	sorted := topologicalSort(dtos, dependencies)
+
+	// Mark self-recursive DTOs
+	for i := range sorted {
+		if selfRecursive[sorted[i].Name] {
+			sorted[i].IsSelfRecursive = true
+		}
+	}
+
+	return sorted
 }
 
 // prepareDTOs adds template-specific data to DTOs

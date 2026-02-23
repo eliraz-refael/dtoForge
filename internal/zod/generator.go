@@ -13,6 +13,7 @@ import (
 // ZodGenerator implements the Generator interface for TypeScript/Zod
 type ZodGenerator struct {
 	customTypes *CustomTypeRegistry
+	selfName    string // Name of the current self-recursive DTO being generated (empty if not recursive)
 }
 
 // NewZodGenerator creates a new Zod generator
@@ -61,6 +62,11 @@ func (g *ZodGenerator) Generate(dtos []generator.DTO, config generator.Config) e
 
 		// Generate individual files for each DTO
 		for _, dto := range sortedDTOs {
+			if dto.IsSelfRecursive {
+				g.selfName = dto.Name
+			} else {
+				g.selfName = ""
+			}
 			if err := g.generateDTOFile(dto, config, genConfig); err != nil {
 				return fmt.Errorf("failed to generate file for DTO %s: %w", dto.Name, err)
 			}
@@ -217,17 +223,26 @@ func (g *ZodGenerator) generatePackageJSON(config generator.Config) error {
 func (g *ZodGenerator) templateFuncs() template.FuncMap {
 	return template.FuncMap{
 		"toZodType":             g.toZodType,
+		"toTSType":              g.toTSType,
 		"propertyToZodType":     g.propertyToZodType,
 		"isEffectivelyRequired": g.isEffectivelyRequired,
 		"toCamelCase":           g.toCamelCase,
 		"toPascalCase":          g.toPascalCase,
 		"toKebabCase":           g.toKebabCase,
 		"hasDescription":        g.hasDescription,
-		"len":                   func(slice []string) int { return len(slice) },
-		"add":                   func(a, b int) int { return a + b },
-		"sub":                   func(a, b int) int { return a - b },
-		"lt":                    func(a, b int) bool { return a < b },
-		"not":                   func(b bool) bool { return !b },
+		"setCurrentDTO": func(name string, isSelfRecursive bool) string {
+			if isSelfRecursive {
+				g.selfName = name
+			} else {
+				g.selfName = ""
+			}
+			return ""
+		},
+		"len": func(slice []string) int { return len(slice) },
+		"add": func(a, b int) int { return a + b },
+		"sub": func(a, b int) int { return a - b },
+		"lt":  func(a, b int) bool { return a < b },
+		"not": func(b bool) bool { return !b },
 	}
 }
 
@@ -242,7 +257,17 @@ func (g *ZodGenerator) getPackageName(config generator.Config) string {
 func (g *ZodGenerator) sortDTOsByDependency(dtos []generator.DTO) []generator.DTO {
 	// Build dependency graph and perform topological sort
 	dependencies := buildDependencyGraph(dtos)
-	return topologicalSort(dtos, dependencies)
+	selfRecursive := detectAndRemoveSelfReferences(dependencies)
+	sorted := topologicalSort(dtos, dependencies)
+
+	// Mark self-recursive DTOs
+	for i := range sorted {
+		if selfRecursive[sorted[i].Name] {
+			sorted[i].IsSelfRecursive = true
+		}
+	}
+
+	return sorted
 }
 
 // TYPE CONVERSION FUNCTIONS
@@ -258,7 +283,11 @@ func (g *ZodGenerator) toZodType(irType generator.IRType, nullable bool, optiona
 		elementType := g.toZodType(t.ElementType, false, false)
 		baseType = fmt.Sprintf("z.array(%s)", elementType)
 	case generator.ReferenceType:
-		baseType = fmt.Sprintf("%sSchema", t.RefName)
+		if t.RefName == g.selfName {
+			baseType = fmt.Sprintf("z.lazy(() => %sSchema)", t.RefName)
+		} else {
+			baseType = fmt.Sprintf("%sSchema", t.RefName)
+		}
 	case generator.EnumType:
 		values := make([]string, len(t.Values))
 		for i, v := range t.Values {
@@ -361,6 +390,73 @@ func (g *ZodGenerator) stringWithFormat(format string) string {
 		// Unknown format, just use string with a comment
 		return fmt.Sprintf("z.string() /* format: %s */", format)
 	}
+}
+
+// toTSType converts an IRType to a plain TypeScript type string (for manual interface declarations)
+func (g *ZodGenerator) toTSType(irType generator.IRType, nullable bool) string {
+	var baseType string
+
+	switch t := irType.(type) {
+	case generator.PrimitiveType:
+		switch t.Name {
+		case "string":
+			baseType = "string"
+		case "number", "integer":
+			baseType = "number"
+		case "boolean":
+			baseType = "boolean"
+		default:
+			baseType = "unknown"
+		}
+	case generator.ArrayType:
+		elementType := g.toTSType(t.ElementType, false)
+		baseType = fmt.Sprintf("readonly %s[]", elementType)
+	case generator.ReferenceType:
+		baseType = t.RefName
+	case generator.EnumType:
+		values := make([]string, len(t.Values))
+		for i, v := range t.Values {
+			values[i] = fmt.Sprintf("'%s'", v)
+		}
+		baseType = strings.Join(values, " | ")
+	case generator.ObjectType:
+		if t.RefName != "" {
+			baseType = t.RefName
+		} else {
+			baseType = "Record<string, unknown>"
+		}
+	case generator.MapType:
+		valueType := g.toTSType(t.ValueType, false)
+		baseType = fmt.Sprintf("Record<string, %s>", valueType)
+	case generator.UnionType:
+		var unionTypes []string
+		for _, unionType := range t.Types {
+			unionTypes = append(unionTypes, g.toTSType(unionType, false))
+		}
+		if len(unionTypes) > 0 {
+			baseType = fmt.Sprintf("(%s)", strings.Join(unionTypes, " | "))
+		} else {
+			baseType = "unknown"
+		}
+	case generator.IntersectionType:
+		var intersectionTypes []string
+		for _, intersectionType := range t.Types {
+			intersectionTypes = append(intersectionTypes, g.toTSType(intersectionType, false))
+		}
+		if len(intersectionTypes) > 0 {
+			baseType = fmt.Sprintf("(%s)", strings.Join(intersectionTypes, " & "))
+		} else {
+			baseType = "unknown"
+		}
+	default:
+		baseType = "unknown"
+	}
+
+	if nullable {
+		return fmt.Sprintf("%s | null", baseType)
+	}
+
+	return baseType
 }
 
 // UTILITY FUNCTIONS

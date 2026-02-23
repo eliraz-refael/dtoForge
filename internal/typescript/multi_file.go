@@ -27,6 +27,15 @@ func (g *MultiFileGenerator) Generate(dtos []generator.DTO, config generator.Con
 	// Sort DTOs alphabetically for consistent output
 	sortedDTOs := g.sortAlphabetically(dtos)
 
+	// Detect self-recursive DTOs
+	dependencies := buildDependencyGraph(sortedDTOs)
+	selfRecursive := detectAndRemoveSelfReferences(dependencies)
+	for i := range sortedDTOs {
+		if selfRecursive[sortedDTOs[i].Name] {
+			sortedDTOs[i].IsSelfRecursive = true
+		}
+	}
+
 	// Get generation settings
 	genConfig := g.customTypes.GetGenerationConfig()
 

@@ -37,6 +37,12 @@ func TestGoldenFiles(t *testing.T) {
 			configFile:  "testdata/allof-test.config.yaml",
 			goldenDir:   "testdata/golden/allof-schemas",
 		},
+		{
+			name:        "recursive-schemas",
+			openAPIFile: "testdata/recursive-api.yaml",
+			configFile:  "testdata/recursive-test.config.yaml",
+			goldenDir:   "testdata/golden/recursive-schemas",
+		},
 	}
 
 	for _, tc := range testCases {
@@ -283,6 +289,12 @@ func TestGoldenFilesWithUpdate(t *testing.T) {
 			openAPIFile: "testdata/allof-api.yaml",
 			configFile:  "testdata/allof-test.config.yaml",
 			goldenDir:   "testdata/golden/allof-schemas",
+		},
+		{
+			name:        "recursive-schemas",
+			openAPIFile: "testdata/recursive-api.yaml",
+			configFile:  "testdata/recursive-test.config.yaml",
+			goldenDir:   "testdata/golden/recursive-schemas",
 		},
 	}
 
