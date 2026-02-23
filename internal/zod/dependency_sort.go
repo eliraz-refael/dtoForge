@@ -81,6 +81,24 @@ func extractTypeRefs(irType generator.IRType, deps *[]string, seen map[string]bo
 	// PrimitiveType, EnumType, and NullType don't have dependencies
 }
 
+// detectAndRemoveSelfReferences finds DTOs that reference themselves and removes
+// those self-edges from the dependency graph so they don't create false cycles.
+func detectAndRemoveSelfReferences(dependencies map[string][]string) map[string]bool {
+	selfRecursive := make(map[string]bool)
+	for name, deps := range dependencies {
+		var cleaned []string
+		for _, dep := range deps {
+			if dep == name {
+				selfRecursive[name] = true
+			} else {
+				cleaned = append(cleaned, dep)
+			}
+		}
+		dependencies[name] = cleaned
+	}
+	return selfRecursive
+}
+
 // topologicalSort performs Kahn's algorithm to sort DTOs by dependencies
 func topologicalSort(dtos []generator.DTO, dependencies map[string][]string) []generator.DTO {
 	// Create a map for quick DTO lookup

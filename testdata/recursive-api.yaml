@@ -1,0 +1,40 @@
+openapi: 3.0.0
+info:
+  title: Recursive Schema Test API
+  version: 1.0.0
+components:
+  schemas:
+    TreeNode:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+        children:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/TreeNode'
+
+    FacetSearchFieldRequest:
+      type: object
+      properties:
+        fieldPath:
+          type: string
+          nullable: true
+        subFieldFacets:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/FacetSearchFieldRequest'
+
+    SimpleDTO:
+      type: object
+      required:
+        - id
+      properties:
+        id:
+          type: string
+        label:
+          type: string
