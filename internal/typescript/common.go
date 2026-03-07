@@ -193,18 +193,26 @@ func toIoTsType(irType generator.IRType, nullable bool, customTypes *CustomTypeR
 	return baseType
 }
 
-// toTSType converts an IRType to TypeScript type using custom type mappings
+// toTSType converts an IRType to TypeScript type using custom type mappings.
+// When codecCompat is true, generates types matching io-ts codec output:
+//   - Arrays use ReadonlyArray<T> (matching t.readonlyArray)
+//   - Maps use { [key: string]: T } (avoiding Record<> which can be shadowed by local exports)
 func toTSType(irType generator.IRType, nullable bool, customTypes *CustomTypeRegistry) string {
+	return toTSTypeInternal(irType, nullable, false, customTypes)
+}
+
+func toCodecTSType(irType generator.IRType, nullable bool, customTypes *CustomTypeRegistry) string {
+	return toTSTypeInternal(irType, nullable, true, customTypes)
+}
+
+func toTSTypeInternal(irType generator.IRType, nullable bool, codecCompat bool, customTypes *CustomTypeRegistry) string {
 	var baseType string
-	// For TypeScript types, extract the base type from io-ts format (e.g., "t.unknownRecord" -> "unknown")
-	// For now, we keep "unknown" as the TS default since it's the standard TypeScript type
 	defaultUnknown := "unknown"
 
 	switch t := irType.(type) {
 	case generator.PrimitiveType:
 		switch t.Name {
 		case "string":
-			// Check for custom format mapping
 			if t.Format != "" {
 				if mapping, exists := customTypes.Get(t.Format); exists {
 					baseType = mapping.TypeScriptType
@@ -222,8 +230,12 @@ func toTSType(irType generator.IRType, nullable bool, customTypes *CustomTypeReg
 			baseType = defaultUnknown
 		}
 	case generator.ArrayType:
-		elementType := toTSType(t.ElementType, false, customTypes)
-		baseType = fmt.Sprintf("%s[]", elementType)
+		elementType := toTSTypeInternal(t.ElementType, false, codecCompat, customTypes)
+		if codecCompat {
+			baseType = fmt.Sprintf("ReadonlyArray<%s>", elementType)
+		} else {
+			baseType = fmt.Sprintf("%s[]", elementType)
+		}
 	case generator.ReferenceType:
 		baseType = t.RefName
 	case generator.EnumType:
@@ -235,17 +247,22 @@ func toTSType(irType generator.IRType, nullable bool, customTypes *CustomTypeReg
 	case generator.ObjectType:
 		if t.RefName != "" {
 			baseType = t.RefName
+		} else if codecCompat {
+			baseType = "{ [key: string]: unknown }"
 		} else {
 			baseType = "Record<string, unknown>"
 		}
 	case generator.MapType:
-		valueType := toTSType(t.ValueType, false, customTypes)
-		baseType = fmt.Sprintf("Record<string, %s>", valueType)
+		valueType := toTSTypeInternal(t.ValueType, false, codecCompat, customTypes)
+		if codecCompat {
+			baseType = fmt.Sprintf("{ [key: string]: %s }", valueType)
+		} else {
+			baseType = fmt.Sprintf("Record<string, %s>", valueType)
+		}
 	case generator.UnionType:
-		// Handle oneOf/union types
 		var unionTypes []string
 		for _, unionType := range t.Types {
-			unionTypes = append(unionTypes, toTSType(unionType, false, customTypes))
+			unionTypes = append(unionTypes, toTSTypeInternal(unionType, false, codecCompat, customTypes))
 		}
 		if len(unionTypes) > 0 {
 			baseType = fmt.Sprintf("(%s)", strings.Join(unionTypes, " | "))
@@ -253,10 +270,9 @@ func toTSType(irType generator.IRType, nullable bool, customTypes *CustomTypeReg
 			baseType = defaultUnknown
 		}
 	case generator.IntersectionType:
-		// Handle allOf/intersection types (schema composition)
 		var intersectionTypes []string
 		for _, intersectionType := range t.Types {
-			intersectionTypes = append(intersectionTypes, toTSType(intersectionType, false, customTypes))
+			intersectionTypes = append(intersectionTypes, toTSTypeInternal(intersectionType, false, codecCompat, customTypes))
 		}
 		if len(intersectionTypes) > 0 {
 			baseType = fmt.Sprintf("(%s)", strings.Join(intersectionTypes, " & "))
@@ -272,6 +288,20 @@ func toTSType(irType generator.IRType, nullable bool, customTypes *CustomTypeReg
 	}
 
 	return baseType
+}
+
+// propertyToCodecTSType converts a property to a TypeScript type matching the codec.
+// For optional properties (not effectively required), adds | null since t.partial() makes fields nullable.
+func propertyToCodecTSType(prop generator.Property, isRequired bool, customTypes *CustomTypeRegistry) string {
+	effect := getXNullableEffect(prop, customTypes)
+	nullable := prop.Nullable || effect.MakeNullable
+
+	// In t.partial(), fields become T | null even if not explicitly nullable
+	if !isRequired {
+		nullable = true
+	}
+
+	return toCodecTSType(prop.Type, nullable, customTypes)
 }
 
 // Case conversion utilities
