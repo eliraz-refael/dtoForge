@@ -167,6 +167,9 @@ func (g *SingleFileGenerator) templateFuncs() template.FuncMap {
 		"isEffectivelyRequired": func(prop generator.Property) bool {
 			return isEffectivelyRequired(prop, g.customTypes)
 		},
+		"codecTSType": func(prop generator.Property, isRequired bool) string {
+			return propertyToCodecTSType(prop, isRequired, g.customTypes)
+		},
 		"toCamelCase":          toCamelCase,
 		"toPascalCase":         toPascalCase,
 		"toKebabCase":          toKebabCase,

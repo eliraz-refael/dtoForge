@@ -7,13 +7,13 @@ import * as t from 'io-ts';
 // Interface declarations
 export interface FacetSearchFieldRequest {
   fieldPath?: string | null;
-  subFieldFacets?: FacetSearchFieldRequest[] | null;
+  subFieldFacets?: ReadonlyArray<FacetSearchFieldRequest> | null;
 }
 
 export interface SimpleDTO extends t.TypeOf<typeof SimpleDTO> {}
 
 export interface TreeNode {
-  children?: TreeNode[] | null;
+  children?: ReadonlyArray<TreeNode> | null;
   name: string;
 }
 
