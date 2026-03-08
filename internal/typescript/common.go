@@ -279,6 +279,8 @@ func toTSTypeInternal(irType generator.IRType, nullable bool, codecCompat bool, 
 		} else {
 			baseType = defaultUnknown
 		}
+	case generator.NullType:
+		baseType = "null"
 	default:
 		baseType = defaultUnknown
 	}

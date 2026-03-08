@@ -5,7 +5,10 @@ import * as t from 'io-ts';
 
 
 // Interface declarations
+export interface FacetFieldDateInterval extends t.TypeOf<typeof FacetFieldDateInterval> {}
+
 export interface FacetSearchFieldRequest {
+  dateInterval?: (FacetFieldDateInterval | null);
   fieldPath?: string | null;
   subFieldFacets?: ReadonlyArray<FacetSearchFieldRequest> | null;
 }
@@ -21,10 +24,21 @@ export interface TreeNode {
 
 
 
+// Schema: FacetFieldDateInterval
+export const FacetFieldDateInterval = t.partial({
+  unit: t.string,
+})
+
+
+
+
+
+
 // Schema: FacetSearchFieldRequest (recursive)
 
 export const FacetSearchFieldRequest: t.Type<FacetSearchFieldRequest> = t.recursion('FacetSearchFieldRequest', () =>
   t.partial({
+    dateInterval: t.union([FacetFieldDateInterval, t.null]),
     fieldPath: t.union([t.string, t.null]),
     subFieldFacets: t.union([t.readonlyArray(FacetSearchFieldRequest), t.null]),
   })

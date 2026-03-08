@@ -448,6 +448,8 @@ func (g *ZodGenerator) toTSType(irType generator.IRType, nullable bool) string {
 		} else {
 			baseType = "unknown"
 		}
+	case generator.NullType:
+		baseType = "null"
 	default:
 		baseType = "unknown"
 	}
