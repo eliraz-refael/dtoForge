@@ -432,6 +432,11 @@ func (g *ZodGenerator) toTSType(irType generator.IRType, nullable bool) string {
 		var unionTypes []string
 		for _, unionType := range t.Types {
 			unionTypes = append(unionTypes, g.toTSType(unionType, false))
+			// If the union already contains a NullType, suppress the nullable flag
+			// to avoid generating redundant "| null" (e.g. "(Foo | null) | null")
+			if _, isNull := unionType.(generator.NullType); isNull {
+				nullable = false
+			}
 		}
 		if len(unionTypes) > 0 {
 			baseType = fmt.Sprintf("(%s)", strings.Join(unionTypes, " | "))
