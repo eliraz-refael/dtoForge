@@ -263,6 +263,11 @@ func toTSTypeInternal(irType generator.IRType, nullable bool, codecCompat bool, 
 		var unionTypes []string
 		for _, unionType := range t.Types {
 			unionTypes = append(unionTypes, toTSTypeInternal(unionType, false, codecCompat, customTypes))
+			// If the union already contains a NullType, suppress the nullable flag
+			// to avoid generating redundant "| null" (e.g. "(Foo | null) | null")
+			if _, isNull := unionType.(generator.NullType); isNull {
+				nullable = false
+			}
 		}
 		if len(unionTypes) > 0 {
 			baseType = fmt.Sprintf("(%s)", strings.Join(unionTypes, " | "))
@@ -279,6 +284,8 @@ func toTSTypeInternal(irType generator.IRType, nullable bool, codecCompat bool, 
 		} else {
 			baseType = defaultUnknown
 		}
+	case generator.NullType:
+		baseType = "null"
 	default:
 		baseType = defaultUnknown
 	}
