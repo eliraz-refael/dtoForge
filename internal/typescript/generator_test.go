@@ -299,7 +299,11 @@ func TestTypeScriptGenerator_Generate_MultipleFiles(t *testing.T) {
 	indexFile := filepath.Join(tempDir, "index.ts")
 	testutils.AssertFileContains(t, indexFile, "export * from './user';")
 	testutils.AssertFileContains(t, indexFile, "export * from './status';")
-	testutils.AssertFileContains(t, indexFile, "export * as t from 'io-ts';")
+	// This run uses the default config (generateHelpers: false), so the index
+	// must not emit the validation helpers (regression: they used to leak in
+	// regardless of the flag).
+	testutils.AssertFileNotContains(t, indexFile, "export const validateData")
+	testutils.AssertFileNotContains(t, indexFile, "from 'fp-ts/Either'")
 
 	// Check package.json
 	packageFile := filepath.Join(tempDir, "package.json")
@@ -520,4 +524,125 @@ func TestTypeScriptGenerator_MultiFile_CrossDTOImports(t *testing.T) {
 	addressFile := filepath.Join(tempDir, "address.ts")
 	testutils.AssertFileNotContains(t, addressFile, "from './address'")
 	testutils.AssertFileNotContains(t, ownerFile, "from './owner'")
+}
+
+// genMultiFileIndex generates multi-file output for a single trivial DTO with the
+// given generateHelpers setting and returns the contents of index.ts.
+func genMultiFileIndex(t *testing.T, generateHelpers bool) string {
+	t.Helper()
+	gen := NewTypeScriptGenerator()
+	tempDir := testutils.TempDir(t)
+
+	configContent := "output:\n  mode: multiple\ngeneration:\n  generateHelpers: " +
+		map[bool]string{true: "true", false: "false"}[generateHelpers]
+	configPath := testutils.WriteFile(t, tempDir, "config.yaml", configContent)
+
+	config := generator.Config{
+		OutputFolder:   tempDir,
+		PackageName:    "helpers-test",
+		TargetLanguage: "typescript",
+		ConfigFile:     configPath,
+	}
+	if err := gen.Generate([]generator.DTO{testutils.CreateTestDTO("User")}, config); err != nil {
+		t.Fatalf("Generate() failed: %v", err)
+	}
+	return testutils.ReadFile(t, filepath.Join(tempDir, "index.ts"))
+}
+
+// TestMultiFile_IndexHelpersRespectFlag is a regression test for the index.ts
+// validation helpers being emitted regardless of generation.generateHelpers.
+func TestMultiFile_IndexHelpersRespectFlag(t *testing.T) {
+	off := genMultiFileIndex(t, false)
+	if strings.Contains(off, "validateData") || strings.Contains(off, "fp-ts/Either") {
+		t.Errorf("generateHelpers:false must suppress index helpers, got:\n%s", off)
+	}
+
+	on := genMultiFileIndex(t, true)
+	if !strings.Contains(on, "export const validateData") {
+		t.Errorf("generateHelpers:true must emit index helpers, got:\n%s", on)
+	}
+}
+
+// TestMultiFile_IndexHelpersUseLocalBindings is a regression test for the index.ts
+// helpers referencing `t`/`isRight` that were only re-exported (export-only
+// bindings), and for untyped callback params — both of which broke strict tsc.
+func TestMultiFile_IndexHelpersUseLocalBindings(t *testing.T) {
+	idx := genMultiFileIndex(t, true)
+
+	mustContain := func(s string) {
+		t.Helper()
+		if !strings.Contains(idx, s) {
+			t.Errorf("index.ts missing %q, got:\n%s", s, idx)
+		}
+	}
+
+	// Must import locally so the helpers can reference the bindings...
+	mustContain("import * as t from 'io-ts';")
+	mustContain("import { isLeft, isRight } from 'fp-ts/Either';")
+	mustContain("export { t, isLeft, isRight };")
+	// ...and must NOT use the broken export-only re-export.
+	if strings.Contains(idx, "export * as t from 'io-ts'") {
+		t.Errorf("index must not use export-only `export * as t`, got:\n%s", idx)
+	}
+	// Callback params must be explicitly typed (noImplicitAny).
+	mustContain("(error: t.ValidationError)")
+	mustContain("(c: t.ContextEntry)")
+	mustContain("(key: string)")
+}
+
+// TestMultiFile_AllOfCustomTypeImports is a regression test for custom-type
+// imports being omitted on allOf DTOs, whose format-bearing properties live in
+// IntersectionType rather than Properties.
+func TestMultiFile_AllOfCustomTypeImports(t *testing.T) {
+	gen := NewTypeScriptGenerator()
+	tempDir := testutils.TempDir(t)
+
+	configContent := `output:
+  mode: multiple
+customTypes:
+  date:
+    ioTsType: "DateOnlyString"
+    typeScriptType: "DateOnlyString"
+    import: "import { DateOnlyString } from '@fg/domain/DateOnlyString';"`
+	configPath := testutils.WriteFile(t, tempDir, "config.yaml", configContent)
+
+	// An allOf DTO: a $ref base plus an inline object carrying a custom format.
+	inline := generator.DTO{
+		Name: "ParamsInline",
+		Properties: []generator.Property{
+			{Name: "replayFromDate", Type: generator.PrimitiveType{Name: "string", Format: "date"}},
+		},
+	}
+	dtos := []generator.DTO{
+		testutils.CreateTestDTO("Base"),
+		{
+			Name: "Params",
+			Type: "allOf",
+			IntersectionType: &generator.IntersectionType{
+				Types: []generator.IRType{
+					generator.ReferenceType{RefName: "Base"},
+					generator.ObjectType{Inline: true, DTORef: &inline},
+				},
+			},
+			Metadata: make(map[string]string),
+		},
+	}
+
+	config := generator.Config{
+		OutputFolder:   tempDir,
+		PackageName:    "allof-test",
+		TargetLanguage: "typescript",
+		ConfigFile:     configPath,
+	}
+	if err := gen.Generate(dtos, config); err != nil {
+		t.Fatalf("Generate() failed: %v", err)
+	}
+
+	paramsFile := filepath.Join(tempDir, "params.ts")
+	// The custom type is used in the codec...
+	testutils.AssertFileContains(t, paramsFile, "DateOnlyString")
+	// ...so its import must be present (the bug: it was missing for allOf).
+	testutils.AssertFileContains(t, paramsFile, "import { DateOnlyString } from '@fg/domain/DateOnlyString';")
+	// The cross-DTO base reference must still be imported too.
+	testutils.AssertFileContains(t, paramsFile, "import { Base } from './base';")
 }
