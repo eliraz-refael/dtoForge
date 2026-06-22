@@ -52,9 +52,10 @@ components:
 					"email: t.string,",
 					"export interface User extends t.TypeOf<typeof User> {}",
 				},
+				// Default config has generateHelpers: false, so the index only
+				// re-exports the schemas — no io-ts/fp-ts validation helpers.
 				"index.ts": {
 					"export * from './user';",
-					"export * as t from 'io-ts';",
 				},
 			},
 		},

@@ -468,21 +468,60 @@ func crossDTOImports(dto generator.DTO, knownDTOs map[string]bool) []string {
 	return imports
 }
 
-// getUsedFormatsInDTO finds all formats used in a single DTO
+// getUsedFormatsInDTO finds all formats used in a single DTO, recursing through
+// arrays, maps, unions, intersections, and inline objects. This matters for allOf
+// DTOs (dto.Type == "allOf"), whose format-bearing properties live inside
+// dto.IntersectionType rather than dto.Properties, as well as for formats nested
+// inside arrays/maps at any depth.
 func getUsedFormatsInDTO(dto generator.DTO) []string {
 	formatSet := make(map[string]bool)
 	var formats []string
 
 	for _, prop := range dto.Properties {
-		if prim, ok := prop.Type.(generator.PrimitiveType); ok {
-			if prim.Format != "" && !formatSet[prim.Format] {
-				formats = append(formats, prim.Format)
-				formatSet[prim.Format] = true
-			}
+		collectFormats(prop.Type, formatSet, &formats)
+	}
+
+	// allOf composition stores its members in IntersectionType, not Properties.
+	if dto.IntersectionType != nil {
+		for _, member := range dto.IntersectionType.Types {
+			collectFormats(member, formatSet, &formats)
 		}
 	}
 
 	return formats
+}
+
+// collectFormats walks an IRType and appends every distinct custom format it finds.
+func collectFormats(irType generator.IRType, seen map[string]bool, formats *[]string) {
+	switch t := irType.(type) {
+	case generator.PrimitiveType:
+		if t.Format != "" && !seen[t.Format] {
+			seen[t.Format] = true
+			*formats = append(*formats, t.Format)
+		}
+	case generator.ArrayType:
+		collectFormats(t.ElementType, seen, formats)
+	case generator.MapType:
+		collectFormats(t.ValueType, seen, formats)
+	case generator.UnionType:
+		for _, member := range t.Types {
+			collectFormats(member, seen, formats)
+		}
+	case generator.IntersectionType:
+		for _, member := range t.Types {
+			collectFormats(member, seen, formats)
+		}
+	case generator.ObjectType:
+		// Inline objects (e.g. allOf inline parts) carry their properties on
+		// DTORef. Referenced objects (RefName set) own their own file and emit
+		// their own imports, so we don't recurse into those.
+		if t.Inline && t.DTORef != nil {
+			for _, prop := range t.DTORef.Properties {
+				collectFormats(prop.Type, seen, formats)
+			}
+		}
+	}
+	// ReferenceType, EnumType, and NullType carry no formats.
 }
 
 // getPackageName returns the package name from config or default

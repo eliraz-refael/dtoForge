@@ -619,7 +619,14 @@ func (g *ZodGenerator) crossDTOImports(dto generator.DTO, knownDTOs map[string]b
 	return imports
 }
 
-// getUsedFormatsInDTO finds all formats used in a single DTO
+// getUsedFormatsInDTO finds all formats used in a single DTO.
+//
+// Note: unlike the io-ts generator, this is intentionally NOT extended to walk
+// allOf IntersectionType members. The Zod templates do not yet render allOf
+// composition (an allOf DTO emits an empty z.object({})), and Zod treats common
+// formats like date/date-time as built-ins (z.string().date()) rather than custom
+// types, so the io-ts "Bug 3" (missing custom-type import on allOf) does not
+// manifest here. See PR discussion; Zod allOf rendering is tracked separately.
 func (g *ZodGenerator) getUsedFormatsInDTO(dto generator.DTO) []string {
 	formatSet := make(map[string]bool)
 	var formats []string

@@ -7,9 +7,11 @@ export * from './status';
 export * from './user';
 
 
-// Re-export io-ts for convenience
-export * as t from 'io-ts';
-export { isLeft, isRight } from 'fp-ts/Either';
+// io-ts and fp-ts are imported locally so the helpers below can reference them,
+// then re-exported for consumers (re-export-only bindings are not usable locally).
+import * as t from 'io-ts';
+import { isLeft, isRight } from 'fp-ts/Either';
+export { t, isLeft, isRight };
 
 // Utility type for validation results
 export type ValidationResult<T> = {
@@ -40,8 +42,8 @@ export const validateData = <T>(
 
 // Format io-ts validation errors into readable messages
 const formatValidationErrors = (errors: t.Errors): string[] => {
-  return errors.map(error => {
-    const path = error.context.map(c => c.key).filter(key => key !== '').join('.');
+  return errors.map((error: t.ValidationError) => {
+    const path = error.context.map((c: t.ContextEntry) => c.key).filter((key: string) => key !== '').join('.');
     const expectedType = error.context[error.context.length - 1]?.type?.name || 'unknown';
     const actualValue = error.value;
 

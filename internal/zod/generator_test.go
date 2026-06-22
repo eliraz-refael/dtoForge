@@ -279,11 +279,15 @@ func TestZodGenerator_Generate_MultipleFiles(t *testing.T) {
 	testutils.AssertFileContains(t, statusFile, "'inactive',")
 	testutils.AssertFileContains(t, statusFile, "'pending'")
 
-	// Check index.ts
+	// Check index.ts (Zod defaults generateHelpers to true). zod is imported
+	// locally and re-exported, not re-exported directly (which is unusable
+	// locally and broke strict tsc).
 	indexFile := filepath.Join(tempDir, "index.ts")
 	testutils.AssertFileContains(t, indexFile, "export * from './user';")
 	testutils.AssertFileContains(t, indexFile, "export * from './status';")
-	testutils.AssertFileContains(t, indexFile, "export { z } from 'zod';")
+	testutils.AssertFileContains(t, indexFile, "import { z } from 'zod';")
+	testutils.AssertFileContains(t, indexFile, "export { z };")
+	testutils.AssertFileNotContains(t, indexFile, "export { z } from 'zod';")
 
 	// Check package.json
 	packageFile := filepath.Join(tempDir, "package.json")
@@ -353,6 +357,67 @@ func TestZodGenerator_MultiFile_CrossDTOImports(t *testing.T) {
 	addressFile := filepath.Join(tempDir, "address.ts")
 	testutils.AssertFileNotContains(t, addressFile, "from './address'")
 	testutils.AssertFileNotContains(t, ownerFile, "from './owner'")
+}
+
+// genZodIndex generates multi-file Zod output for a single trivial DTO with the
+// given generateHelpers setting and returns the contents of index.ts.
+func genZodIndex(t *testing.T, generateHelpers bool) string {
+	t.Helper()
+	gen := NewZodGenerator()
+	tempDir := testutils.TempDir(t)
+
+	configContent := "typescript-zod:\n  output:\n    mode: multiple\n  generation:\n    generateHelpers: " +
+		map[bool]string{true: "true", false: "false"}[generateHelpers]
+	configPath := testutils.WriteFile(t, tempDir, "config.yaml", configContent)
+
+	config := generator.Config{
+		OutputFolder:   tempDir,
+		PackageName:    "helpers-test",
+		TargetLanguage: "typescript-zod",
+		ConfigFile:     configPath,
+	}
+	if err := gen.Generate([]generator.DTO{testutils.CreateTestDTO("User")}, config); err != nil {
+		t.Fatalf("Generate() failed: %v", err)
+	}
+	return testutils.ReadFile(t, filepath.Join(tempDir, "index.ts"))
+}
+
+// TestZodGenerator_IndexHelpersRespectFlag is a regression test for the Zod index.ts
+// validation helpers being emitted regardless of generation.generateHelpers.
+func TestZodGenerator_IndexHelpersRespectFlag(t *testing.T) {
+	off := genZodIndex(t, false)
+	if strings.Contains(off, "validateData") {
+		t.Errorf("generateHelpers:false must suppress index helpers, got:\n%s", off)
+	}
+
+	on := genZodIndex(t, true)
+	if !strings.Contains(on, "export const validateData") {
+		t.Errorf("generateHelpers:true must emit index helpers, got:\n%s", on)
+	}
+}
+
+// TestZodGenerator_IndexHelpersUseLocalBindings is a regression test for the Zod
+// index.ts helper referencing `z` that was only re-exported (export-only binding),
+// and for the untyped issue callback param — both of which broke strict tsc.
+func TestZodGenerator_IndexHelpersUseLocalBindings(t *testing.T) {
+	idx := genZodIndex(t, true)
+
+	mustContain := func(s string) {
+		t.Helper()
+		if !strings.Contains(idx, s) {
+			t.Errorf("index.ts missing %q, got:\n%s", s, idx)
+		}
+	}
+
+	// Must import locally so the helper can reference z, then re-export it...
+	mustContain("import { z } from 'zod';")
+	mustContain("export { z };")
+	// ...and must NOT use the broken export-only re-export.
+	if strings.Contains(idx, "export { z } from 'zod'") {
+		t.Errorf("index must not use export-only `export { z } from 'zod'`, got:\n%s", idx)
+	}
+	// Callback param must be explicitly typed (noImplicitAny).
+	mustContain("(issue: z.ZodIssue)")
 }
 
 func TestZodGenerator_Generate_SingleFile(t *testing.T) {
