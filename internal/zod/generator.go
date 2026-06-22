@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"text/template"
 
@@ -60,6 +61,13 @@ func (g *ZodGenerator) Generate(dtos []generator.DTO, config generator.Config) e
 			return fmt.Errorf("failed to generate index file: %w", err)
 		}
 
+		// Build the set of DTO names that will be generated. Used to emit cross-DTO
+		// imports only for schemas that actually have their own file.
+		knownDTOs := make(map[string]bool, len(sortedDTOs))
+		for _, dto := range sortedDTOs {
+			knownDTOs[dto.Name] = true
+		}
+
 		// Generate individual files for each DTO
 		for _, dto := range sortedDTOs {
 			if dto.IsSelfRecursive {
@@ -67,7 +75,7 @@ func (g *ZodGenerator) Generate(dtos []generator.DTO, config generator.Config) e
 			} else {
 				g.selfName = ""
 			}
-			if err := g.generateDTOFile(dto, config, genConfig); err != nil {
+			if err := g.generateDTOFile(dto, config, genConfig, knownDTOs); err != nil {
 				return fmt.Errorf("failed to generate file for DTO %s: %w", dto.Name, err)
 			}
 		}
@@ -84,7 +92,7 @@ func (g *ZodGenerator) Generate(dtos []generator.DTO, config generator.Config) e
 }
 
 // generateDTOFile creates individual DTO files with Zod schemas
-func (g *ZodGenerator) generateDTOFile(dto generator.DTO, config generator.Config, genConfig GenerationConfig) error {
+func (g *ZodGenerator) generateDTOFile(dto generator.DTO, config generator.Config, genConfig GenerationConfig, knownDTOs map[string]bool) error {
 	filename := fmt.Sprintf("%s%s", g.toKebabCase(dto.Name), g.FileExtension())
 	filepath := filepath.Join(config.OutputFolder, filename)
 
@@ -107,7 +115,7 @@ func (g *ZodGenerator) generateDTOFile(dto generator.DTO, config generator.Confi
 	}{
 		DTO:         dto,
 		Config:      config,
-		Imports:     g.calculateImports(dto),
+		Imports:     g.calculateImports(dto, knownDTOs),
 		PackageName: g.getPackageName(config),
 	}
 
@@ -563,13 +571,52 @@ func (g *ZodGenerator) propertyToZodType(prop generator.Property) string {
 	return g.toZodType(prop.Type, nullable, optional)
 }
 
-// calculateImports determines what needs to be imported for a DTO using custom types
-func (g *ZodGenerator) calculateImports(dto generator.DTO) []string {
+// calculateImports determines what needs to be imported for a DTO using custom types.
+// In multi-file mode each DTO lives in its own file, so any other DTO it references
+// must be imported from that DTO's file. knownDTOs is the set of DTO names that are
+// actually generated; references to names outside this set (e.g. excluded schemas)
+// are skipped to avoid emitting imports to files that don't exist.
+func (g *ZodGenerator) calculateImports(dto generator.DTO, knownDTOs map[string]bool) []string {
 	// Get all formats used in this DTO
 	usedFormats := g.getUsedFormatsInDTO(dto)
 
-	// Use the custom type registry to get the appropriate imports
-	return g.customTypes.GetAllImports(usedFormats)
+	// Use the custom type registry to get the appropriate imports (zod + custom types)
+	imports := g.customTypes.GetAllImports(usedFormats)
+
+	// Add cross-DTO imports for every other schema this DTO references.
+	imports = append(imports, g.crossDTOImports(dto, knownDTOs)...)
+
+	return imports
+}
+
+// crossDTOImports builds import statements for every other DTO referenced by dto.
+// Each generated DTO file exports both `<Name>Schema` (the zod schema) and `<Name>`
+// (the inferred type). The schema is always needed; the bare type is additionally
+// imported for self-recursive DTOs, whose explicit type declaration references it.
+// Self-references are skipped (handled in-file via z.lazy), as are references to
+// schemas that were not generated.
+func (g *ZodGenerator) crossDTOImports(dto generator.DTO, knownDTOs map[string]bool) []string {
+	deps := extractDependencies(dto)
+
+	// Sort for deterministic output.
+	sort.Strings(deps)
+
+	var imports []string
+	for _, dep := range deps {
+		if dep == dto.Name {
+			continue // self-reference: resolved within the same file via z.lazy
+		}
+		if knownDTOs != nil && !knownDTOs[dep] {
+			continue // referenced schema was not generated (e.g. excluded)
+		}
+		if dto.IsSelfRecursive {
+			imports = append(imports, fmt.Sprintf("import { %s, %sSchema } from './%s';", dep, dep, g.toKebabCase(dep)))
+		} else {
+			imports = append(imports, fmt.Sprintf("import { %sSchema } from './%s';", dep, g.toKebabCase(dep)))
+		}
+	}
+
+	return imports
 }
 
 // getUsedFormatsInDTO finds all formats used in a single DTO

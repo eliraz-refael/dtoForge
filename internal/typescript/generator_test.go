@@ -450,3 +450,74 @@ func TestTypeScriptGenerator_CustomTypes(t *testing.T) {
 		t.Errorf("Should have EmailString import, got content:\n%s", content)
 	}
 }
+
+// TestTypeScriptGenerator_MultiFile_CrossDTOImports is a regression test for a bug
+// where multi-file output referenced other DTOs' codecs (directly, in arrays, and
+// via enums) without importing them, producing TypeScript that fails to compile.
+func TestTypeScriptGenerator_MultiFile_CrossDTOImports(t *testing.T) {
+	gen := NewTypeScriptGenerator()
+	tempDir := testutils.TempDir(t)
+
+	dtos := []generator.DTO{
+		testutils.CreateTestDTO("Address"),
+		{
+			Name:       "Status",
+			Type:       "enum",
+			EnumValues: []string{"active", "inactive"},
+		},
+		{
+			Name:     "Owner",
+			Type:     "object",
+			Required: []string{"name"},
+			Properties: []generator.Property{
+				{Name: "name", Type: generator.PrimitiveType{Name: "string"}, Required: true},
+				// Reference to another DTO.
+				{Name: "address", Type: generator.ReferenceType{RefName: "Address"}, Required: false},
+			},
+			Metadata: make(map[string]string),
+		},
+		{
+			Name:     "Zoo",
+			Type:     "object",
+			Required: []string{"owner"},
+			Properties: []generator.Property{
+				// Direct reference.
+				{Name: "owner", Type: generator.ReferenceType{RefName: "Owner"}, Required: true},
+				// Reference inside an array.
+				{Name: "neighbors", Type: generator.ArrayType{ElementType: generator.ReferenceType{RefName: "Owner"}}, Required: false},
+				// Reference to an enum DTO.
+				{Name: "status", Type: generator.ReferenceType{RefName: "Status"}, Required: false},
+			},
+			Metadata: make(map[string]string),
+		},
+	}
+
+	config := generator.Config{
+		OutputFolder:   tempDir,
+		PackageName:    "cross-dto-test",
+		TargetLanguage: "typescript",
+	}
+
+	if err := gen.Generate(dtos, config); err != nil {
+		t.Fatalf("Generate() failed: %v", err)
+	}
+
+	// Owner references Address.
+	ownerFile := filepath.Join(tempDir, "owner.ts")
+	testutils.AssertFileContains(t, ownerFile, "import { Address } from './address';")
+
+	// Zoo references Owner (direct + array) and Status (enum). Each dependency
+	// must be imported exactly once, regardless of how many times it appears.
+	zooFile := filepath.Join(tempDir, "zoo.ts")
+	testutils.AssertFileContains(t, zooFile, "import { Owner } from './owner';")
+	testutils.AssertFileContains(t, zooFile, "import { Status } from './status';")
+	if got := strings.Count(testutils.ReadFile(t, zooFile), "from './owner'"); got != 1 {
+		t.Errorf("Owner should be imported exactly once, got %d", got)
+	}
+
+	// A DTO with no cross-references must not gain spurious imports, and a DTO
+	// must never import itself.
+	addressFile := filepath.Join(tempDir, "address.ts")
+	testutils.AssertFileNotContains(t, addressFile, "from './address'")
+	testutils.AssertFileNotContains(t, ownerFile, "from './owner'")
+}
