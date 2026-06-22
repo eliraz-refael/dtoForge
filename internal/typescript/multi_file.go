@@ -39,9 +39,16 @@ func (g *MultiFileGenerator) Generate(dtos []generator.DTO, config generator.Con
 	// Get generation settings
 	genConfig := g.customTypes.GetGenerationConfig()
 
+	// Build the set of DTO names that will be generated. Used to emit cross-DTO
+	// imports only for schemas that actually have their own file.
+	knownDTOs := make(map[string]bool, len(sortedDTOs))
+	for _, dto := range sortedDTOs {
+		knownDTOs[dto.Name] = true
+	}
+
 	// Generate individual files for each DTO
 	for _, dto := range sortedDTOs {
-		if err := g.generateDTOFile(dto, config, genConfig); err != nil {
+		if err := g.generateDTOFile(dto, config, genConfig, knownDTOs); err != nil {
 			return fmt.Errorf("failed to generate file for DTO %s: %w", dto.Name, err)
 		}
 	}
@@ -74,7 +81,7 @@ func (g *MultiFileGenerator) sortAlphabetically(dtos []generator.DTO) []generato
 }
 
 // generateDTOFile creates a single TypeScript file for one DTO
-func (g *MultiFileGenerator) generateDTOFile(dto generator.DTO, config generator.Config, genConfig GenerationConfig) error {
+func (g *MultiFileGenerator) generateDTOFile(dto generator.DTO, config generator.Config, genConfig GenerationConfig, knownDTOs map[string]bool) error {
 	filename := fmt.Sprintf("%s%s", toKebabCase(dto.Name), ".ts")
 	filepath := filepath.Join(config.OutputFolder, filename)
 
@@ -110,7 +117,7 @@ func (g *MultiFileGenerator) generateDTOFile(dto generator.DTO, config generator
 	}{
 		DTO:                   dto,
 		Config:                config,
-		Imports:               calculateImports(dto, g.customTypes),
+		Imports:               calculateImports(dto, g.customTypes, knownDTOs),
 		PackageName:           getPackageName(config),
 		GeneratePartialCodecs: genConfig.GeneratePartialCodecs,
 		GenerateHelpers:       genConfig.GenerateHelpers,

@@ -291,6 +291,70 @@ func TestZodGenerator_Generate_MultipleFiles(t *testing.T) {
 	testutils.AssertFileContains(t, packageFile, `"name": "test-zod"`)
 }
 
+// TestZodGenerator_MultiFile_CrossDTOImports is a regression test for a bug where
+// multi-file output referenced other DTOs' schemas (directly, in arrays, and via
+// enums) without importing them, producing TypeScript that fails to compile.
+func TestZodGenerator_MultiFile_CrossDTOImports(t *testing.T) {
+	gen := NewZodGenerator()
+	tempDir := testutils.TempDir(t)
+
+	dtos := []generator.DTO{
+		testutils.CreateTestDTO("Address"),
+		{
+			Name:       "Status",
+			Type:       "enum",
+			EnumValues: []string{"active", "inactive"},
+		},
+		{
+			Name:     "Owner",
+			Type:     "object",
+			Required: []string{"name"},
+			Properties: []generator.Property{
+				{Name: "name", Type: generator.PrimitiveType{Name: "string"}, Required: true},
+				{Name: "address", Type: generator.ReferenceType{RefName: "Address"}, Required: false},
+			},
+			Metadata: make(map[string]string),
+		},
+		{
+			Name:     "Zoo",
+			Type:     "object",
+			Required: []string{"owner"},
+			Properties: []generator.Property{
+				{Name: "owner", Type: generator.ReferenceType{RefName: "Owner"}, Required: true},
+				{Name: "neighbors", Type: generator.ArrayType{ElementType: generator.ReferenceType{RefName: "Owner"}}, Required: false},
+				{Name: "status", Type: generator.ReferenceType{RefName: "Status"}, Required: false},
+			},
+			Metadata: make(map[string]string),
+		},
+	}
+
+	config := generator.Config{
+		OutputFolder:   tempDir,
+		PackageName:    "cross-dto-test",
+		TargetLanguage: "typescript-zod",
+	}
+
+	if err := gen.Generate(dtos, config); err != nil {
+		t.Fatalf("Generate() failed: %v", err)
+	}
+
+	// Zod schemas are referenced as `<Name>Schema`, so imports use that name.
+	ownerFile := filepath.Join(tempDir, "owner.ts")
+	testutils.AssertFileContains(t, ownerFile, "import { AddressSchema } from './address';")
+
+	zooFile := filepath.Join(tempDir, "zoo.ts")
+	testutils.AssertFileContains(t, zooFile, "import { OwnerSchema } from './owner';")
+	testutils.AssertFileContains(t, zooFile, "import { StatusSchema } from './status';")
+	if got := strings.Count(testutils.ReadFile(t, zooFile), "from './owner'"); got != 1 {
+		t.Errorf("Owner should be imported exactly once, got %d", got)
+	}
+
+	// No spurious or self imports.
+	addressFile := filepath.Join(tempDir, "address.ts")
+	testutils.AssertFileNotContains(t, addressFile, "from './address'")
+	testutils.AssertFileNotContains(t, ownerFile, "from './owner'")
+}
+
 func TestZodGenerator_Generate_SingleFile(t *testing.T) {
 	gen := NewZodGenerator()
 	tempDir := testutils.TempDir(t)

@@ -2,6 +2,7 @@ package typescript
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"unicode"
 
@@ -389,13 +390,45 @@ func quote(s string) string {
 	return fmt.Sprintf("'%s'", s)
 }
 
-// calculateImports determines what needs to be imported for a DTO using custom types
-func calculateImports(dto generator.DTO, customTypes *CustomTypeRegistry) []string {
+// calculateImports determines what needs to be imported for a DTO using custom types.
+// In multi-file mode each DTO lives in its own file, so any other DTO it references
+// must be imported from that DTO's file. knownDTOs is the set of DTO names that are
+// actually generated; references to names outside this set (e.g. excluded schemas)
+// are skipped to avoid emitting imports to files that don't exist.
+func calculateImports(dto generator.DTO, customTypes *CustomTypeRegistry, knownDTOs map[string]bool) []string {
 	// Get all formats used in this DTO
 	usedFormats := getUsedFormatsInDTO(dto)
 
-	// Use the custom type registry to get the appropriate imports
-	return customTypes.GetAllImports(usedFormats)
+	// Use the custom type registry to get the appropriate imports (io-ts + custom types)
+	imports := customTypes.GetAllImports(usedFormats)
+
+	// Add cross-DTO imports for every other schema this DTO references.
+	imports = append(imports, crossDTOImports(dto, knownDTOs)...)
+
+	return imports
+}
+
+// crossDTOImports builds `import { Name } from './name';` statements for every other
+// DTO referenced by dto. Self-references are skipped (handled in-file via t.recursion),
+// as are references to schemas that were not generated.
+func crossDTOImports(dto generator.DTO, knownDTOs map[string]bool) []string {
+	deps := extractDependencies(dto)
+
+	// Sort for deterministic output.
+	sort.Strings(deps)
+
+	var imports []string
+	for _, dep := range deps {
+		if dep == dto.Name {
+			continue // self-reference: resolved within the same file
+		}
+		if knownDTOs != nil && !knownDTOs[dep] {
+			continue // referenced schema was not generated (e.g. excluded)
+		}
+		imports = append(imports, fmt.Sprintf("import { %s } from './%s';", dep, toKebabCase(dep)))
+	}
+
+	return imports
 }
 
 // getUsedFormatsInDTO finds all formats used in a single DTO
